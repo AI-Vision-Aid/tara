@@ -20,7 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import requests
-from flask import Blueprint, jsonify, render_template, request, session, redirect
+from flask import Blueprint, Response, jsonify, render_template, request, session, redirect
 from ability_market.catalogue import CATALOGUE, get_buyable
 from security import csrf_valid, rate_limited
 
@@ -82,7 +82,9 @@ def guard():
 
 
 def _state(mode='live'):
-    mode = 'sandbox' if mode == 'sandbox' else 'live'
+    # Tara-assisted purchases are test-only until the owner enables real commerce.
+    # The existing marketplace checkout is separate and remains unchanged.
+    mode = 'sandbox'
     key = 'tara_sid_' + mode
     sid = session.get(key)
     with _lock:
@@ -145,6 +147,7 @@ def knowledge():
                 'Free apps may require external API accounts or credits. The Windows Saarthi app is recommended over its limited browser demo.',
                 'Published dates and prices are not negotiable by Tara. Do not promise discounts or legal certification.',
                 'A visitor reviews and submits existing forms themselves. PayPal handles payment approval on its own website.',
+                'Every Tara-assisted order is a PayPal Sandbox demonstration: no real charge or commissioned work. Regular marketplace checkout is separate.',
                 'Tara never requests card details, PayPal passwords, API keys, medical details or other secrets.',
                 'For missing information, prepare a customer service request via /contact. Do not invent an answer or a response deadline.'
             ]}
@@ -322,7 +325,7 @@ def get_session():
 @bp.post('/api/tara/reset')
 def reset():
     data = request.get_json(silent=True) or {}
-    mode = 'sandbox' if data.get('mode') == 'sandbox' else 'live'
+    mode = 'sandbox'
     with _lock:
         _states.pop(session.pop('tara_sid_' + mode, None), None)
     return jsonify(_view(_state(mode)))
@@ -418,6 +421,112 @@ def voice():
     return provider(call)
 
 
+SPEECH_STYLE = ('Neutral English with a light American accent. Natural conversational '
+                'speed, warm, clear, gently cheerful and professional.')
+
+
+def speech_chunks(text):
+    """Stream 24 kHz signed little-endian PCM without a complete-file wait.
+
+    Use the documented REST interface so streaming speech annotations do not
+    depend on the installed SDK's evolving Interactions schema. Style is kept
+    separate from the verbatim text; it must never be read aloud.
+    """
+    body = {'model':os.environ.get('TARA_STREAM_TTS_MODEL', 'gemini-3.8-flash-tts'),
+        'input':[{'type':'user_input','content':[{'type':'text','text':text,
+                  'annotations':[{'type':'speech_metadata','style':SPEECH_STYLE}]}]}],
+        'response_format':{'type':'audio','mime_type':'audio/l16','sample_rate':24000},
+        'generation_config':{'speech_config':[{'voice':'Zephyr'}]},
+        'stream':True, 'store':False}
+    total = 0
+    pending = bytearray()
+    with requests.post('https://generativelanguage.googleapis.com/v1beta/interactions',
+            headers={'x-goog-api-key':os.environ.get('GEMINI_API_KEY','')},
+            json=body, stream=True, timeout=(5,25)) as response:
+        response.raise_for_status()
+        for line in response.iter_lines(chunk_size=1024):
+            if not line.startswith(b'data:'):
+                continue
+            payload = line[5:].strip()
+            if payload == b'[DONE]':
+                break
+            event = json.loads(payload)
+            if event.get('event_type') in ('error','interaction.failed') or event.get('error'):
+                raise ValueError('SpeechStreamFailed')
+            delta = event.get('delta') or {}
+            if delta.get('type') != 'audio' or not delta.get('data'):
+                continue
+            raw = base64.b64decode(delta['data'], validate=True)
+            total += len(raw)
+            if total > 8 * 1024 * 1024:
+                raise ValueError('SpeechTooLong')
+            pending.extend(raw)
+            # About 80 ms per buffer avoids hundreds of tiny playback nodes.
+            while len(pending) >= 3840:
+                yield bytes(pending[:3840])
+                del pending[:3840]
+        if not total or len(pending) % 2:
+            raise ValueError('InvalidSpeechAudio')
+        if pending:
+            yield bytes(pending)
+
+
+@bp.post('/api/tara/voice-stream')
+def voice_stream():
+    data = request.get_json(silent=True) or {}
+    state = _state(data.get('mode'))
+    entry = next((m for m in state['history'] if m.get('id') == data.get('message_id')
+                  and m['role'] == 'assistant'), None)
+    if not entry:
+        return jsonify(error='Choose a Tara reply to hear.'), 400
+    if not _slots.acquire(blocking=False):
+        return jsonify(error='Tara is busy. Please try again shortly.'), 429
+    upstream = None
+    released = False
+    def cleanup():
+        nonlocal released
+        if not released:
+            released = True
+            try:
+                if upstream is not None:
+                    close = getattr(upstream, 'close', None)
+                    if close:
+                        close()
+            finally:
+                _slots.release()
+    try:
+        if not reserve_call():
+            cleanup()
+            return jsonify(error="Today's voice and AI demonstration allowance is used. You can still use all regular forms."), 429
+        upstream = speech_chunks(entry['text'])
+        # Establish the first playable bytes before sending successful headers.
+        first = next(upstream)
+    except Exception as exc:
+        cleanup()
+        log.warning('Tara streaming speech unavailable (%s)', type(exc).__name__)
+        return jsonify(error='Voice could not start. You can repeat the answer or keep typing.'), 503
+
+    def packet(raw):
+        return json.dumps({'audio':base64.b64encode(raw).decode('ascii')}) + '\n'
+
+    def generate():
+        try:
+            yield json.dumps({'sample_rate':24000}) + '\n'
+            yield packet(first)
+            for raw in upstream:
+                yield packet(raw)
+            yield '{"done":true}\n'
+        except Exception as exc:
+            log.warning('Tara streaming speech interrupted (%s)', type(exc).__name__)
+            yield json.dumps({'error':'Voice was interrupted. The complete reply is available as text.'}) + '\n'
+        finally:
+            cleanup()
+    response = Response(generate(), mimetype='application/x-ndjson',
+                        headers={'Cache-Control':'no-store','X-Accel-Buffering':'no'})
+    response.call_on_close(cleanup)
+    return response
+
+
 def _clean_fields(data):
     raw = data.get('fields') or {}
     if not isinstance(raw, dict):
@@ -470,21 +579,17 @@ def prepare():
     if not item and (not fields['name'] or len(fields['message'] or fields['notes']) < 10):
         return jsonify(error='Please add your name and the question you would like the team to answer.'), 422
     state['fields'] = fields
-    if item and state['mode'] == 'sandbox':
+    if item:
         token = secrets.token_urlsafe(24)
         state['review'] = {'token':token,'sku':sku,'fields':fields,
                            'amount':item['price_usd'],'created':time.time()}
         return jsonify(kind='sandbox', review_token=token, item=item,
                        message='Review complete. The next button opens PayPal Sandbox. No real money or service fulfillment is involved.')
     interest = state.get('interest', 'other')
-    if item:
-        form = {k:fields[k] for k in ('email','organization','notes','target_url')}
-        destination = '/buy/' + item['sku']
-    else:
-        form = {'name':fields['name'],'email':fields['email'],
-                'organization':fields['organization'],'interest':interest,
-                'message':fields['message'] or fields['notes']}
-        destination = '/contact'
+    form = {'name':fields['name'],'email':fields['email'],
+            'organization':fields['organization'],'interest':interest,
+            'message':fields['message'] or fields['notes']}
+    destination = '/contact'
     return jsonify(kind='handoff', destination=destination, form=form,
                    message='Your details are ready. Review the completed form and activate its submit button when you are ready.')
 

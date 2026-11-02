@@ -6,12 +6,11 @@
   const $ = id => document.getElementById('tara-' + id);
   const dialog = document.getElementById('tara-dialog');
   const mode = app.dataset.mode;
-  let state, busy = false, voiceMode = false, audio, recognition, recorder, stream, recordTimer, meterTimer, context;
+  let state, busy = false, voiceMode = false, recognition, recorder, stream, recordTimer, meterTimer, context;
   let reviewKind = 'help', reviewToken = '', lastReply = 'welcome';
-  let voiceEpoch=0;
-  let audioUrl='';
   const csrf = document.querySelector('meta[name="csrf-token"]').content;
   const status = (text, error=false) => { $('status').textContent=text; $('status').classList.toggle('tara-error',error); };
+  const speech = new window.TaraAudio(csrf,status);
   function stopTracks() {
     if(stream) stream.getTracks().forEach(t=>t.stop());
     stream=null; clearTimeout(recordTimer); clearInterval(meterTimer);
@@ -23,11 +22,9 @@
     stopTracks();
   }
   function stopVoice() {
-    voiceEpoch++;
     voiceMode=false;
     stopListening();
-    if(audio) { audio.pause(); audio=null; }
-    if(audioUrl){URL.revokeObjectURL(audioUrl);audioUrl='';}
+    speech.cancel();
     $('voice').textContent='Start voice conversation';
     status('Voice stopped. You can keep typing.');
   }
@@ -72,25 +69,12 @@
     if(announce && !voiceMode) $('announcement').textContent=result.history[result.history.length-1].text;
   }
   async function speak(id, resume=false) {
-    const epoch=++voiceEpoch;
-    if(audio) audio.pause();
-    if(audioUrl){URL.revokeObjectURL(audioUrl);audioUrl='';}
-    status('Preparing Tara’s voice…');
-    try {
-      const response=await fetch('/api/tara/voice',{method:'POST',credentials:'same-origin',
-        headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({mode,message_id:id})});
-      if(!response.ok) {const e=await response.json();throw new Error(e.error);}
-      if(epoch!==voiceEpoch)return;
-      const url=URL.createObjectURL(await response.blob()); audioUrl=url;audio=new Audio(url);
-      audio.onended=()=>{URL.revokeObjectURL(url);audio=null;status('Ready.');if(epoch===voiceEpoch&&resume&&voiceMode) listen();};
-      audio.onerror=()=>{URL.revokeObjectURL(url);status('Audio could not play. The reply is available as text.',true);};
-      await audio.play(); status('Tara is speaking. Use Stop voice to interrupt.');
-    }catch(e){status(e.message || 'Voice is unavailable. You can keep typing.',true);}
+    await speech.play(id,mode,()=>{if(resume&&voiceMode)listen();});
   }
   async function send(text) {
     if(busy || !text.trim()) return;
     stopListening();
-    if(audio) audio.pause();
+    speech.cancel();
     setBusy(true);status('Tara is checking the published information…');
     try {
       const result=await api('chat',{message:text.trim(),page:location.pathname}); render(result,true);$('message').value='';status('Ready.');
@@ -110,7 +94,7 @@
   }
   async function listen() {
     if(!voiceMode || busy || document.hidden || (dialog && !dialog.open)) return;
-    if(audio) {audio.pause();audio=null;}
+    speech.cancel();
     const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(Recognition) {
       recognition=new Recognition();recognition.lang='en-US';recognition.interimResults=false;recognition.continuous=false;
@@ -139,10 +123,11 @@
   $('voice').addEventListener('click',()=>{
     if(recorder&&recorder.state==='recording'){recorder.stop();return;}
     if(recognition){recognition.stop();return;}
+    speech.prime().catch(()=>{});
     voiceMode=true;if(state&&state.history.length===1)speak('welcome',true);else listen();
   });
   $('stop').addEventListener('click',stopVoice);
-  $('repeat').addEventListener('click',()=>{stopListening();speak(lastReply,false);});
+  $('repeat').addEventListener('click',()=>{speech.prime().catch(()=>{});stopListening();speak(lastReply,false);});
   $('chat-form').addEventListener('submit',e=>{e.preventDefault();send($('message').value);});
   document.querySelectorAll('[data-tara-prompt]').forEach(b=>b.addEventListener('click',()=>send(b.dataset.taraPrompt)));
   $('reset').addEventListener('click',async()=>{stopVoice();try{render(await api('reset',{}));status('A new conversation is ready.');}catch(e){status(e.message,true);}});
@@ -156,11 +141,12 @@
     if(kind==='help') $('notes').value=state.fields.message||state.fields.notes||state.history.filter(m=>m.role==='user').map(m=>m.text).join('\n');
     $('name').required=kind==='help';$('notes').required=kind==='help';
     $('target-wrap').hidden=!(kind==='order'&&item.needs_target_url);$('target_url').required=kind==='order'&&!!item.needs_target_url;
-    $('prepare').textContent=mode==='sandbox'&&kind==='order'?'Review sandbox payment':'Continue to the completed form';
+    $('prepare').textContent=kind==='order'?'Review sandbox payment':'Continue to the completed form';
     $('review-title').focus();
     if(wasVoice) readReview();
   }
   async function readReview(){
+    speech.prime().catch(()=>{});
     try{const fields=Object.fromEntries(new FormData($('review-form')));const result=await api('review-summary',{kind:reviewKind,sku:state.sku,fields});await speak(result.message_id,false);}
     catch(e){status(e.message,true);}
   }

@@ -15,7 +15,7 @@ This repository is an independently runnable source package for the new Tara
 layer. The `ability_tara` module, browser client, panel and catalogue match the
 integrated release. The small `app.py` harness replaces the private business
 platform. Its contact route is an unsent local preview. The integrated site
-uses the existing real inquiry and order infrastructure.
+uses the existing real inquiry form. All Tara-assisted purchases are sandbox-only; normal marketplace checkout remains separate.
 
 ## Run locally
 
@@ -73,7 +73,7 @@ Create/capture use idempotency IDs. Pending or mismatched captures are rejected.
 Google Gemini provides structured conversation; Zephyr provides female voice
 with a requested neutral/slightly American delivery. Browser speech recognition
 is used where available, with short-recording Gemini transcription as fallback.
-Tara uses only catalogue and public-page context, with a human-request fallback.
+Replies stream through Gemini 3.8 Flash TTS as 24 kHz PCM, with Zephyr and separate speech-style metadata. Stop, close, hiding the page and a new turn cancel queued speech. The cached welcome and complete-WAV fallback remain available. Tara uses only catalogue and public-page context, with a human-request fallback.
 Keyboard controls, visible text, editable details, stop/repeat and draft readback
 are included. Assistive-technology and physical-microphone testing are still
 required before claiming broad accessibility validation.
