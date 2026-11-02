@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="page-head">
+  <div class="container">
+    <p class="eyebrow">Trust</p>
+    <h1>Customer support and escalation</h1>
+    <p class="lede">A marketplace is only as good as what happens when something goes wrong. Here is how to reach a human, what response times to expect, and how to escalate if we fall short.</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="support-title">
+  <div class="container container-narrow prose">
+    <h2 id="support-title">Reaching us</h2>
+    <ul>
+      <li><strong>Email</strong>: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> - the fastest route. Include your order or inquiry reference (it looks like AB-XXXXXX) if you have one.</li>
+      <li><strong>Contact form</strong>: <a href="{{ url_for('contact', interest='other', about='Support request') }}">Talk to us</a> - every submission gets a reference number and lands with the operations team.</li>
+      <li><strong>Phone</strong>: (781) 333-5252 - leave a message and we will call back. Email is faster.</li>
+    </ul>
+
+    <h2>What to expect</h2>
+    <ul>
+      <li><strong>Acknowledgement within 1 business day</strong> for any support request.</li>
+      <li><strong>Order status questions</strong>: answered same or next business day, with your order's current pipeline stage.</li>
+      <li><strong>Deliverable concerns</strong> (something late, wrong or unclear in a report): a substantive response within 2 business days, and a named owner for the fix.</li>
+      <li><strong>Payment issues</strong> (charged but no confirmation, refund requests): treated as urgent - we investigate within 1 business day. Test payments made during review are refunded on request, no questions asked.</li>
+    </ul>
+
+    <h2>If a deliverable is late or wrong</h2>
+    <ol>
+      <li>Tell us via email or the contact form with your reference number.</li>
+      <li>We confirm the issue, give you a corrected timeline, and prioritise the fix - re-work caused by our error is always free.</li>
+      <li>If we cannot make it right within the corrected timeline, you may request a partial or full refund for the affected work.</li>
+    </ol>
+
+    <h2 id="escalation">Escalation path</h2>
+    <ol>
+      <li><strong>First line</strong>: the operations team at <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</li>
+      <li><strong>Not resolved in 3 business days?</strong> Reply to the same thread with the word ESCALATE in the subject - it routes to the program director.</li>
+      <li><strong>Still not resolved?</strong> Vision-Aid leadership reviews every escalation weekly; you will receive a written resolution or explanation.</li>
+    </ol>
+
+    <p>One more thing: our operations are run by AI agents, but support is not. A human reads, owns and answers every support request and escalation.</p>
+  </div>
+</section>
+
+{% endblock %}

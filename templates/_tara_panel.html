@@ -1,0 +1,59 @@
+<div id="tara-app" data-mode="{{ 'sandbox' if tara_demo else 'live' }}">
+  <div class="tara-heading"><div><p class="eyebrow">Ability Bazaar</p>{% if current_path == '/tara' %}<h1 id="tara-title">Talk to Tara</h1>{% else %}<h2 id="tara-title">Talk to Tara</h2>{% endif %}<p>Transaction and Request Assistant</p></div><span class="tara-mark" aria-hidden="true">t</span></div>
+  <p class="tara-intro">Tell us what you need. Tara will guide you through. Explore websites, apps, accessibility services, document remediation and everything else we offer.</p>
+  {% if tara_demo %}<p class="tara-notice"><strong>PayPal sandbox demonstration.</strong> Use test details and a PayPal sandbox buyer account. No real money is charged and no work is commissioned. <a href="/tara">Switch to regular service requests</a>.</p>{% endif %}
+  {% if tara_demo %}<p id="tara-sandbox-readiness" role="status">Checking PayPal sandbox availability…</p>{% endif %}
+  <p class="tara-privacy">Tara is AI and can make mistakes. It uses the published catalogue; the team handles questions it cannot verify. Voice and conversation are processed by Google's AI services. Do not share passwords, card details or confidential files. <a href="/privacy">Privacy details</a>.</p>
+  <div class="tara-controls">
+    <button type="button" id="tara-voice" class="btn btn-primary">Start voice conversation</button>
+    <button type="button" id="tara-stop" class="btn btn-secondary">Stop voice</button>
+    <button type="button" id="tara-repeat" class="btn btn-secondary">Repeat last answer</button>
+    <button type="button" id="tara-reset" class="btn btn-quiet">Start over</button>
+  </div>
+  <p id="tara-status" role="status" aria-live="polite">Ready. You can speak or type.</p>
+  <div id="tara-history" class="tara-history" role="log" aria-label="Conversation with Tara" aria-live="off" tabindex="0"></div>
+  <p id="tara-announcement" class="sr-only" aria-live="polite"></p>
+  <form id="tara-chat-form" class="tara-input">
+    <label for="tara-message">Your message</label>
+    <textarea id="tara-message" rows="2" maxlength="2000" placeholder="For example: I need a website for my small business." required></textarea>
+    <button type="submit" id="tara-send" class="btn btn-primary">Send to Tara</button>
+  </form>
+  <div class="tara-suggestions" aria-label="Conversation starters">
+    <button type="button" data-tara-prompt="I'd like to build a website. Help me understand the options.">Build a website</button>
+    <button type="button" data-tara-prompt="I'd like to build an app. What can you help with?">Build an app</button>
+    <button type="button" data-tara-prompt="I'd like an accessibility scan. What is included?">Accessibility testing</button>
+    <button type="button" data-tara-prompt="I need accessible documents. Help me choose a suitable service.">Document remediation</button>
+    <button type="button" data-tara-prompt="Tell me about your free apps and how I can try them.">Explore free apps</button>
+  </div>
+  <section id="tara-service" class="tara-service" hidden aria-labelledby="tara-service-title"></section>
+  <nav id="tara-resources" class="tara-controls" aria-label="Verified pages related to your question"></nav>
+  <details class="tara-service"><summary>Current service packages and published prices</summary><ul>
+    {% for item in tara_catalogue %}<li><a href="{{ '/buy/' ~ item.sku if item.cta == 'buy' else '/services#offers' }}">{{ item.name }} — {{ item.price_label }}</a></li>{% endfor %}
+  </ul><p>Custom work needs a team-approved quote. Tara cannot set a new price or promise a discount.</p></details>
+  <div class="tara-controls tara-actions">
+    <button type="button" id="tara-order" class="btn btn-primary" hidden>Review a service order</button>
+    <button type="button" id="tara-help" class="btn btn-secondary">Prepare a team request</button>
+    <a href="/services#offers">Browse all services</a>
+    <a href="/apps">Explore the apps</a>
+  </div>
+  <section id="tara-review" class="tara-review" hidden aria-labelledby="tara-review-title">
+    <h3 id="tara-review-title" tabindex="-1">Review your request</h3>
+    <p id="tara-review-description"></p>
+    <form id="tara-review-form">
+      <label for="tara-name">Your name</label><input id="tara-name" name="name" autocomplete="name" maxlength="120">
+      <label for="tara-email">Email address (required)</label><input id="tara-email" name="email" type="email" autocomplete="email" maxlength="254" required>
+      <label for="tara-organization">Organization (optional)</label><input id="tara-organization" name="organization" autocomplete="organization" maxlength="200">
+      <div id="tara-target-wrap"><label for="tara-target_url">Website address</label><input id="tara-target_url" name="target_url" type="text" placeholder="example.org" maxlength="500"></div>
+      <label for="tara-notes" id="tara-brief-label">Your requirements or question</label><textarea id="tara-notes" name="notes" rows="5" maxlength="5000"></textarea>
+      <p>Check these details carefully. You can edit every field. Your final submission or payment approval is always your choice.</p>
+      <button type="button" id="tara-read-review" class="btn btn-secondary">Read my draft aloud</button>
+      <button type="submit" id="tara-prepare" class="btn btn-primary">Continue to the completed form</button>
+    </form>
+    <div id="tara-sandbox-confirm" hidden>
+      <p id="tara-sandbox-summary"></p>
+      <button type="button" id="tara-paypal" class="btn btn-primary">Approve and continue to PayPal Sandbox</button>
+      <p>You will sign in and approve using a sandbox buyer account on PayPal's own website. Never give Tara a PayPal password.</p>
+    </div>
+  </section>
+  <p class="tara-footer">Regular forms remain available. <a href="/contact">Contact the team</a> · {% if not tara_demo %}<a href="/tara?demo=1">Try the PayPal sandbox demo</a>{% else %}<a href="https://developer.paypal.com/tools/sandbox/">About PayPal sandbox accounts</a>{% endif %}</p>
+</div>

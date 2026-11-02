@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="page-head">
+  <div class="container">
+    <p class="eyebrow">Contact</p>
+    <h1>Talk to us</h1>
+    <p class="lede">Buy services, pilot an app, sponsor a cohort, or join as a creator or tester - this is the front door. A human reads every message.</p>
+    <p>Prefer email? Write directly to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> - or use the form below.</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="form-title">
+  <div class="container container-narrow">
+    <h2 id="form-title" class="sr-only">Contact form</h2>
+
+    {% if errors %}
+    <div class="error-summary" id="error-summary" tabindex="-1" role="alert" aria-labelledby="error-summary-title">
+      <h3 id="error-summary-title">There {{ 'is 1 problem' if errors|length == 1 else 'are ' ~ errors|length ~ ' problems' }} to fix</h3>
+      <ul>
+        {% for field, message in errors.items() %}
+        <li><a href="#field-{{ field }}">{{ message }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if form.about %}
+    <p class="context-chip">You're asking about: <strong>{{ form.about }}</strong></p>
+    {% endif %}
+
+    {% if form.request_type == 'custom-quote' %}
+    <p class="callout"><strong>Custom quote request:</strong> Tell us the outcome, scope and timing you need. We will email you a unique quote number immediately, and a person will respond within one business day.</p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('contact') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {# V1.12.0: carries which app/service the visitor clicked through from,
+         so every lead arrives tagged with its origin (Harish / Arun). #}
+      <input type="hidden" name="about" value="{{ form.about }}">
+      <input type="hidden" name="request_type" value="{{ form.request_type }}">
+      {# V3.2.5: ad-click attribution, filled client-side from sessionStorage. #}
+      <input type="hidden" name="gclid" value="">
+      <input type="hidden" name="gbraid" value="">
+      <input type="hidden" name="wbraid" value="">
+      <input type="hidden" name="msclkid" value="">
+      <input type="hidden" name="li_fat_id" value="">
+      <input type="hidden" name="utm_source" value="">
+      <input type="hidden" name="utm_medium" value="">
+      <input type="hidden" name="utm_campaign" value="">
+      <input type="hidden" name="utm_content" value="">
+      <div class="field {% if errors.name %}field-error{% endif %}">
+        <label for="field-name">Your name <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+        <input type="text" id="field-name" name="name" value="{{ form.name }}" autocomplete="name" maxlength="120" required
+               {% if errors.name %}aria-invalid="true" aria-describedby="error-name"{% endif %}>
+        {% if errors.name %}<p class="field-message" id="error-name">{{ errors.name }}</p>{% endif %}
+      </div>
+
+      <div class="field {% if errors.email %}field-error{% endif %}">
+        <label for="field-email">{{ 'Work email' if form.request_type == 'custom-quote' else 'Email address' }} <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+        <input type="email" id="field-email" name="email" value="{{ form.email }}" autocomplete="email" maxlength="254" required
+               {% if errors.email %}aria-invalid="true" aria-describedby="error-email"{% endif %}>
+        {% if errors.email %}<p class="field-message" id="error-email">{{ errors.email }}</p>{% endif %}
+      </div>
+
+      <div class="field {% if errors.organization %}field-error{% endif %}">
+        <label for="field-organization">Organization {% if form.request_type == 'custom-quote' %}<span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span>{% else %}<span class="optional">(optional)</span>{% endif %}</label>
+        <input type="text" id="field-organization" name="organization" value="{{ form.organization }}" autocomplete="organization" maxlength="200" {% if form.request_type == 'custom-quote' %}required{% endif %}
+               {% if errors.organization %}aria-invalid="true" aria-describedby="error-organization"{% endif %}>
+        {% if errors.organization %}<p class="field-message" id="error-organization">{{ errors.organization }}</p>{% endif %}
+      </div>
+
+      {% if form.request_type == 'custom-quote' %}
+      <div class="field {% if errors.organization_type %}field-error{% endif %}">
+        <label for="field-organization_type">Organization type <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+        <select id="field-organization_type" name="organization_type" required
+                {% if errors.organization_type %}aria-invalid="true" aria-describedby="error-organization_type"{% endif %}>
+          <option value="">Choose one…</option>
+          {% for value, label in organization_types %}<option value="{{ value }}" {% if form.organization_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        {% if errors.organization_type %}<p class="field-message" id="error-organization_type">{{ errors.organization_type }}</p>{% endif %}
+      </div>
+
+      <div class="field {% if errors.website_url %}field-error{% endif %}">
+        <label for="field-website_url">Website address <span class="optional">(if relevant)</span></label>
+        <input type="url" id="field-website_url" name="website_url" value="{{ form.website_url }}" autocomplete="url" maxlength="500" placeholder="example.org"
+               {% if errors.website_url %}aria-invalid="true" aria-describedby="error-website_url"{% endif %}>
+        {% if errors.website_url %}<p class="field-message" id="error-website_url">{{ errors.website_url }}</p>{% endif %}
+      </div>
+
+      <div class="field {% if errors.need %}field-error{% endif %}">
+        <label for="field-need">What do you need? <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+        <select id="field-need" name="need" required {% if errors.need %}aria-invalid="true" aria-describedby="error-need"{% endif %}>
+          <option value="">Choose one…</option>
+          {% for value, label in quote_needs %}
+          <option value="{{ value }}" {% if form.need == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.need %}<p class="field-message" id="error-need">{{ errors.need }}</p>{% endif %}
+      </div>
+
+      <div class="field {% if errors.timeline %}field-error{% endif %}">
+        <label for="field-timeline">When do you need it? <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+        <select id="field-timeline" name="timeline" required {% if errors.timeline %}aria-invalid="true" aria-describedby="error-timeline"{% endif %}>
+          <option value="">Choose one…</option>
+          {% for value, label in quote_timelines %}<option value="{{ value }}" {% if form.timeline == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        {% if errors.timeline %}<p class="field-message" id="error-timeline">{{ errors.timeline }}</p>{% endif %}
+      </div>
+      {% endif %}
+
+      <div class="field {% if errors.interest %}field-error{% endif %}">
+        <label for="field-interest">I am interested in <span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span></label>
+        <select id="field-interest" name="interest" required
+                {% if errors.interest %}aria-invalid="true" aria-describedby="error-interest"{% endif %}>
+          <option value="" {% if not form.interest %}selected{% endif %}>Choose one…</option>
+          {% for value, label in interests %}
+          <option value="{{ value }}" {% if form.interest == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.interest %}<p class="field-message" id="error-interest">{{ errors.interest }}</p>{% endif %}
+      </div>
+
+      <div class="field {% if errors.message %}field-error{% endif %}">
+        <label for="field-message">{{ 'Anything else' if form.request_type == 'custom-quote' else 'Your message' }} {% if form.request_type == 'custom-quote' %}<span class="optional">(optional)</span>{% else %}<span class="req" aria-hidden="true">*</span><span class="sr-only">(required)</span>{% endif %}</label>
+        <p class="field-hint" id="hint-message">{{ 'Add context, constraints or links that will help us scope the work.' if form.request_type == 'custom-quote' else 'Tell us about your goal, your timeline, or the unmet need you want solved.' }}</p>
+        <textarea id="field-message" name="message" rows="6" maxlength="5000" {% if form.request_type != 'custom-quote' %}required{% endif %}
+                  aria-describedby="hint-message{% if errors.message %} error-message{% endif %}"
+                  {% if errors.message %}aria-invalid="true"{% endif %}>{{ form.message }}</textarea>
+        {% if errors.message %}<p class="field-message" id="error-message">{{ errors.message }}</p>{% endif %}
+      </div>
+
+      <div class="hp" aria-hidden="true">
+        <label for="field-website">Leave this field empty</label>
+        <input type="text" id="field-website" name="website" tabindex="-1" autocomplete="off">
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-large">{{ 'Request my quote' if form.request_type == 'custom-quote' else 'Send message' }}</button>
+      <p class="field-hint">Your message goes to the Vision-Aid team at {{ contact_email }}, and we reply by email. No newsletters, no spam.</p>
+    </form>
+  </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="page-head">
+  <div class="container">
+    <p class="eyebrow">Products</p>
+    <h1>Accessible AI apps, born from lived experience</h1>
+    <p class="lede">Explore accessible web and desktop apps created around the needs of blind and low-vision users, with input from people with disabilities.</p>
+    <p>And we don't stop at accessibility products: our disability-led teams - blind, low-vision and other disabilities alike - design and build <strong>any web, mobile or AI application for any business need</strong>, with accessibility expertise built in rather than bolted on.</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="catalogue-title">
+  <div class="container">
+    <h2 id="catalogue-title" class="sr-only">App catalogue</h2>
+
+    <div class="filterbar">
+      <div class="field field-inline">
+        <label for="app-search">Search the catalogue</label>
+        <input type="search" id="app-search" name="app-search" placeholder="Try &quot;forms&quot; or &quot;English&quot;" autocomplete="off">
+      </div>
+      <div class="chip-row" role="group" aria-label="Filter by status">
+        {% for value, label in status_filters %}
+        <button type="button" class="chip" data-status-filter="{{ value }}" aria-pressed="{{ 'true' if value == 'all' else 'false' }}">{{ label }}</button>
+        {% endfor %}
+      </div>
+      <p id="filter-count" role="status" class="filter-count">Showing all {{ (apps|length) + 1 }} apps</p>
+    </div>
+
+    <div class="grid-3" id="app-grid">
+      <article id="saarthi" class="card card-app" data-status="live" data-search="saarthi guide meeting assistant screen audio transcript windows blind visually impaired nvidia nebius">
+        <p class="badge badge-live">Available for Windows</p>
+        <img src="{{ url_for('static', filename='img/saarthi-logo.png') }}" alt="Saarthi by Vision-Aid: your helpful guide" width="768" height="512" style="display:block;width:100%;height:auto;max-width:320px;margin:0 auto 1rem;" loading="lazy">
+        <h3>Saarthi</h3>
+        <p class="tagline">Your helpful guide to accessible meetings.</p>
+        <p>Follow what is said and shown in meetings. Saarthi combines shared-screen content and meeting audio to give visually impaired users short spoken answers, during a meeting or when reviewing a saved recording.</p>
+        <p>Built by visually impaired developers who know the barriers of an inaccessible workplace firsthand, and shared freely to help others succeed at work.</p>
+        <p class="card-meta"><strong>For:</strong> Blind and low-vision learners and working professionals</p>
+        <ul class="facts">
+          <li>Live questions about the last 30 seconds</li>
+          <li>Search and ask about saved meetings</li>
+          <li>Keyboard shortcuts and screen-reader support</li>
+        </ul>
+        <p><strong>Free, open-source Windows 10/11 download.</strong> Enter your own Nebius Token Factory and Sarvam API keys in Settings. Provider usage may incur charges.</p>
+        <p><a class="btn btn-primary" href="https://github.com/visionaidcode/NVIDIA_hackathon/releases/download/2.0/Saarthi.exe">Download the free Windows app<span class="sr-only"> (EXE, approximately 206 MB)</span></a></p>
+        <p><strong>For the best experience, run Saarthi locally on Windows.</strong> <a href="{{ url_for('saarthi_demo') }}#windows-setup">Step-by-step Windows download and key-setup guide</a>.</p>
+        <p><a class="btn btn-tertiary" href="{{ url_for('saarthi_demo') }}">Try the limited live working demo</a></p>
+        <p class="card-meta">The real-AI browser demo needs no keys but stops capture after three minutes and does not save meetings. The Windows app offers the full saved-meeting and retrieval workflow.</p>
+        <p><a href="https://www.youtube.com/watch?v=8BZ88xhBSHs" target="_blank" rel="noopener noreferrer">Watch the Saarthi demonstration<span class="sr-only"> (YouTube, opens in a new tab)</span></a></p>
+        <p><a href="https://github.com/visionaidcode/NVIDIA_hackathon#readme" target="_blank" rel="noopener noreferrer">Setup instructions and source code<span class="sr-only"> (GitHub, opens in a new tab)</span></a></p>
+      </article>
+
+      {% for app in apps %}
+      <article class="card card-app" data-status="{{ app.status }}" data-search="{{ app.name|lower }} {{ app.tagline|lower }} {{ app.desc|lower }} {{ app.audience|lower }}">
+        <p class="badge badge-{{ app.status }}">{{ app.status_label }}</p>
+        <h3>{% if app.icon %}<span aria-hidden="true">{{ app.icon }}</span> {% endif %}{{ app.name }}</h3>
+        <p class="tagline">{{ app.tagline }}</p>
+        <p>{{ app.desc }}</p>
+        <p class="card-meta"><strong>For:</strong> {{ app.audience }}</p>
+        <ul class="facts">
+          {% for fact in app.facts %}
+          <li>{{ fact }}</li>
+          {% endfor %}
+        </ul>
+        {% if app.url == '/ability-fellows/interview-coach' %}
+        <p><a href="https://www.youtube.com/watch?v=F0ywVsi_mY4" target="_blank" rel="noopener noreferrer">Watch Maya in action on YouTube<span class="sr-only"> (opens in a new tab)</span></a></p>
+        {% endif %}
+        {% if app.proof %}<p><span class="proof-chip">{{ app.proof }}</span></p>{% endif %}
+        {% if app.url %}
+        <a class="btn btn-tertiary" href="{{ app.url }}">{{ app.cta }}<span class="sr-only"> - {{ app.name }}</span></a>
+        {% else %}
+        <a class="btn btn-tertiary" href="{{ url_for('contact', interest=app.interest, about=app.name) }}">{{ app.cta }}<span class="sr-only"> - {{ app.name }}</span></a>
+        {% endif %}
+      </article>
+      {% endfor %}
+
+      <article class="card card-app card-invite" data-status="all" data-search="propose request need idea new app">
+        <p class="badge badge-invite">Your idea here</p>
+        <h3>Propose the next app</h3>
+        <p class="tagline">Unmet need? Tell us.</p>
+        <p>The catalogue grows from real requests. Describe a problem from your lived experience - our Need-Discovery Agent groups recurring requests, and PwD-led creator teams respond with solutions.</p>
+        <a class="btn btn-primary" href="{{ url_for('contact', interest='other') }}">Describe your need</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section section-soft" aria-labelledby="shell-title">
+  <div class="container">
+    <h2 id="shell-title">One shell, every app</h2>
+    <div class="grid-3">
+      <div class="mini">
+        <h3>Voice-first</h3>
+        <p>Speak and listen - no screen required. Every app supports conversational interaction from day one.</p>
+      </div>
+      <div class="mini">
+        <h3>Screen-reader friendly</h3>
+        <p>Tested with JAWS, NVDA, VoiceOver and TalkBack by professional testers with disabilities.</p>
+      </div>
+      <div class="mini">
+        <h3>Learn once, use everything</h3>
+        <p>The same predictable layout, controls and shortcuts across the whole catalogue.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

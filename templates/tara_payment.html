@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="section"><div class="container container-narrow">
+<p class="eyebrow">Tara · PayPal sandbox demonstration</p>
+<h1>{{ 'Sandbox payment verified' if paid else 'Sandbox checkout' }}</h1>
+<p class="lede" role="status">{{ message }}</p>
+<p><a class="btn btn-primary" href="/tara?demo=1">Return to Tara</a></p>
+<p>Demo transactions are kept separate from real orders, revenue, service fulfillment and customer notifications.</p>
+</div></section>
+{% endblock %}

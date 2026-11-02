@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="page-head">
+  <div class="container">
+    <p class="eyebrow">The story</p>
+    <h1>A new platform. More than two decades of experience.</h1>
+    <p class="lede"><strong>For more than two decades, Vision-Aid has worked with persons with visual disabilities to enable independence, education and employment.</strong> Ability Bazaar is the next chapter: a new platform able to draw on Vision-Aid's deep experience, trusted relationships and vast network across the United States and India to scale quickly.</p>
+  </div>
+</section>
+
+<section class="section section-soft" aria-labelledby="team-title" id="team">
+  <div class="container">
+    <h2 id="team-title">Meet the Ability Bazaar team</h2>
+    <p class="section-lede">The people building Ability Bazaar - across Vision-Aid USA and India, research, and AI development.</p>
+    <ul class="team-grid">
+      {% for member in team %}
+      <li class="team-card">
+        <div class="team-head">
+          <span class="team-avatar" aria-hidden="true">{{ member.initials }}</span>
+          <div>
+            <h3 class="team-name">{{ member.name }}</h3>
+            <p class="team-role">{{ member.role }}</p>
+          </div>
+        </div>
+        <p class="team-bio">{{ member.bio }}</p>
+        {% if member.linkedin %}
+        <p class="team-link"><a href="{{ member.linkedin }}" target="_blank" rel="noopener">Profile<span class="sr-only"> for {{ member.name }}</span> &rarr;</a></p>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="prop-title">
+  <div class="container">
+    <h2 id="prop-title">The proposition</h2>
+    <p class="prose">Ability Bazaar is a global, accessibility-first marketplace where persons with disabilities and mixed creator teams use AI App Builder Agents to translate lived-experience problems into practical AI mini-apps. Each tool is delivered through a common accessible shell, validated by PwD users, and made available to individuals, institutions and employers. Vision-Aid's SEP AI Tutor serves as the anchor offering; the long-term scale engine is a trusted creator economy.</p>
+    <div class="callout callout-honest">
+      <h3>New platform, proven foundation</h3>
+      <p>Ability Bazaar came online in July 2026, but it did not start from zero. Vision-Aid brings more than twenty years of listening to, learning from and delivering programs with persons with visual disabilities. That experience—and a broad network of learners, graduates, accessibility professionals, volunteers, educators, institutions and partners—gives Ability Bazaar the reach and practical knowledge to grow responsibly and quickly.</p>
+    </div>
+    <div class="grid-2">
+      <div class="mini">
+        <h3>It rolls in DATTC</h3>
+        <p>Our Digital Accessibility Testing and Training Center has sold accessibility testing for years - real customers, real revenue, real PwD professionals. Ability Bazaar becomes its storefront, and DATTC becomes the bazaar's proven services engine.</p>
+      </div>
+      <div class="mini">
+        <h3>It rolls in the AI Development Center</h3>
+        <p>Our newest initiative has already shipped the SEP AI Tutor and built Arohi and Nidra. Ability Bazaar becomes the front end to distribute and monetize these apps - and every app that follows.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-soft" aria-labelledby="accountability-title" id="accountability">
+  <div class="container">
+    <h2 id="accountability-title">Accountable, by design</h2>
+    <p class="section-lede">A marketplace is judged on proof, not promises. Ability Bazaar captures evidence from day one - orders delivered, revenue earned, wages paid to experts with disabilities, and accessibility issues fixed.</p>
+    <div class="callout callout-honest">
+      <h3>Honest framing</h3>
+      <p>We publish what we measure. Ability Bazaar is worth building in its own right: it aligns with what Vision-Aid already does, and extends it - turning lived experience into livelihood.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="roadmap-title">
+  <div class="container">
+    <h2 id="roadmap-title">The roadmap</h2>
+    <ol class="roadmap">
+      {% for item in roadmap %}
+      <li class="roadmap-item roadmap-{{ item.state }}">
+        <p class="roadmap-phase">{{ item.phase }}<span class="sr-only">:</span></p>
+        <div>
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.desc }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</section>
+
+<section id="nonprofit-ownership" class="section section-soft" aria-labelledby="ownership-title">
+  <div class="container container-narrow">
+    <p class="eyebrow">Nonprofit ownership</p>
+    <h2 id="ownership-title">A Vision-Aid program on its own domain</h2>
+    <p><strong>Ability Bazaar and abilitybazaar.com are owned and operated by Vision-Aid, Inc., a United States 501(c)(3) public charity.</strong> The separate domain gives this disability-led technology program a clear, accessible home; it is not a separate company or unrelated commercial business.</p>
+    <p>Ability Bazaar directly advances Vision-Aid's charitable mission. It combines training, accessible technology and livelihood creation so people with disabilities can participate as learners, creators, accessibility experts and paid professionals. Revenue from its mission-related services supports delivery, training and paid work within that program.</p>
+    <p><strong>Legal operator and contact:</strong> Vision-Aid, Inc., 8 Vine Brook Road, Lexington, Massachusetts 02421, United States · <a href="mailto:info@visionaid.org">info@visionaid.org</a> · <a href="tel:+17813335252">(781) 333-5252</a>.</p>
+    <p><a href="https://www.visionaid.org" rel="external">Visit Vision-Aid's nonprofit website</a>, where Ability Bazaar is also announced as a Vision-Aid initiative.</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="open-title">
+  <div class="container">
+    <h2 id="open-title">Open for business</h2>
+    <div class="grid-2">
+      <div class="mini">
+        <h3>A real marketplace, today</h3>
+        <p>Ability Bazaar is open for mission-related work as a program operated by Vision-Aid, a 501(c)(3) public charity with more than two decades of experience working with persons with visual disabilities. The platform can immediately leverage Vision-Aid's established network while every delivered order creates skilled work for experts with disabilities.</p>
+      </div>
+      <div class="mini">
+        <h3>Backed by supporters, too</h3>
+        <p>Mission-related earned revenue helps Vision-Aid sustain the platform and create training and livelihood opportunities. Beginning in January 2027, organisations can support one Ability Fellow through a <strong>$1,000 training sponsorship</strong> covering accessible learning, mentoring, practical work, paid internship experience, and employment support. It is an invoiced workforce-development engagement with defined deliverables, not a donation. <a href="{{ url_for('market.sponsor') }}">Explore the Ability Fellowship sponsorship</a>, or if the mission simply inspires you, <a href="{{ url_for('donate') }}">make a gift of any size</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="lifecycle-title">
+  <div class="container">
+    <h2 id="lifecycle-title">Follow one order through the bazaar</h2>
+    <p class="section-lede">The full lifecycle of a provisioned transaction - and where the Google pieces plug in at every step.</p>
+    <ol class="steps">
+      {% for title, desc, tech in lifecycle %}
+      <li class="step">
+        <span class="step-num" aria-hidden="true">{{ loop.index }}</span>
+        <h3>{{ title }}</h3>
+        <p>{{ desc }}</p>
+        <p><span class="proof-chip">{{ tech }}</span></p>
+      </li>
+      {% endfor %}
+    </ol>
+    <p class="section-lede">{{ agent_access_note }}</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="ai-ops-title">
+  <div class="container">
+    <h2 id="ai-ops-title">AI-native by design</h2>
+    <p class="section-lede">Six AI agents are designed to run the platform in production - from need discovery to evidence capture.</p>
+    <ul class="diff-grid">
+      {% for name, desc in agents %}
+      <li class="diff">
+        <h3>{{ name }}</h3>
+        <p>{{ desc }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="center"><a class="btn btn-primary" href="{{ url_for('contact', interest='partner') }}">Help us build it</a></p>
+  </div>
+</section>
+
+{% endblock %}

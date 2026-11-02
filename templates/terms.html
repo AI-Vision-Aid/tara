@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="page-head">
+  <div class="container">
+    <p class="eyebrow">Trust</p>
+    <h1>Terms of service</h1>
+    <p class="lede">These terms govern your use of the Ability Bazaar website and services. Last updated 23 August 2026.</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="who-title">
+  <div class="container container-narrow prose">
+    <h2 id="who-title">1. Who we are</h2>
+    <p>Ability Bazaar is an initiative of <strong>Vision-Aid</strong> (<a href="https://www.visionaid.org" rel="external">www.visionaid.org</a>), a non-profit organization. "We", "us" and "our" refer to Vision-Aid and its Ability Bazaar program. By using this website or ordering our services, you agree to these terms.</p>
+
+    <h2>2. Our intellectual property</h2>
+    <p>The <strong>Ability Bazaar&trade;</strong> name, logo, and marks are trademarks of Vision-Aid. All content on this website &mdash; text, graphics, logos, images, page designs, and underlying software &mdash; is the property of Vision-Aid and protected by copyright, trademark, and other intellectual-property laws.</p>
+    <ul>
+      <li>You may not copy, reproduce, republish, or create derivative works from this website's content, branding, or software without our prior written permission.</li>
+      <li>You may not use the Ability Bazaar name or logo, or any confusingly similar name or mark, in connection with any product or service.</li>
+      <li>Limited quotation with attribution (for example, in press coverage) is welcome.</li>
+    </ul>
+    <p>To request permission, write to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+
+    <h2>3. Our services</h2>
+    <p>Ability Bazaar offers automated accessibility scans, fixed-price website and app launch packages, and separately quoted custom services. The $199 Advanced Accessibility Scan covers one website and up to 200 unique public pages that our crawler can reach without signing in. A blind or low-vision accessibility expert validates and prioritises up to 20 highest-impact distinct automated findings and performs focused checks on 3 key public pages: the homepage, one form or primary workflow, and one representative content page. If the site has fewer suitable pages, we review all available pages. The service is delivered within three business days after we receive a reachable URL and key-page choices; it is not a comprehensive manual audit or assistive-technology test. More detailed testing is available through the <a href="{{ url_for('contact', interest='services', about='Custom human-reviewed accessibility scan', request_type='custom-quote') }}">custom-quote contact form</a>. Deliverables we produce for you under a paid engagement are yours to use once paid for, except that the tools, methods, templates, and know-how we use to produce them remain ours.</p>
+    <p>The $500 Starter Website or App Build includes up to 10 pages or screens, 1 simple user workflow, 2 revision rounds, 5 live collaboration/support hours and one year of managed hosting at no additional charge for up to 10,000 visits per month. The $1,000 Growth Website or App Build includes up to 20 pages or screens, 2 core workflows, 1 selected integration, 3 revision rounds, 10 live collaboration/support hours and one year of managed hosting at no additional charge for up to 25,000 visits per month. A mobile build at these prices is an installable mobile-friendly web app or prototype; native app-store packaging and submission require a custom quote. Customers may use an Ability Bazaar address or choose a custom domain billed at its actual registration cost. Email service, app-store accounts, paid plugins, usage-based AI or API charges and other third-party fees are not included.</p>
+    <p>Build timelines begin after we receive the complete brief, content, credentials and approvals needed to work. The advertised turnaround is for the first working version; customer feedback or delayed inputs can move the final launch date. Included revision rounds cover changes within the purchased scope. Included live support hours may be used during the build and first hosting year; unused hours expire at the end of that year. Additional pages, screens, workflows, integrations, revisions, support, traffic or hosting are available through a custom quote.</p>
+    <p>Accessible Document Remediation covers PDF, Word and PowerPoint files. Document Starter is $199 for up to 30 standard pages with delivery within 5 business days; Document Standard is $499 for up to 90 standard pages within 7 business days; and Document Pro is $899 for up to 180 standard pages within 10 business days. Timelines begin after we receive usable source files. A fillable form, data table, scanned or OCR page, chart or infographic counts as 2 pages. We test remediated files against relevant WCAG 2.2 success criteria; PDF files are also tested against applicable PDF/UA criteria. Every file is verified with NVDA or JAWS by a blind or low-vision professional before delivery. Excel workbooks, complex fillable forms and projects of 500 pages or more require a custom quote. Rush service may be available only by prior agreement and carries a 50% surcharge.</p>
+
+    <h2>4. Orders, payment and refunds</h2>
+    <ul>
+      <li>Prices, what is included and delivery times for every self-serve offer are shown on the <a href="{{ url_for('services') }}">services page</a> and again at checkout, before payment. Payment is processed by PayPal; your card or account details never touch our servers.</li>
+      <li><strong>LAUNCH50 offer:</strong> the code gives one customer 50% off one fixed-price Advanced Accessibility Scan, Starter Build, Growth Build, Document Starter, Document Standard or Document Pro package ordered by 11:59 p.m. Eastern Time on September 30, 2026. It does not apply to custom quotes, custom payments, sponsorships, volume or rush surcharges, domain registrations, paid APIs, app-store charges or other third-party costs; it cannot be combined with another discount. The discounted amount is shown before the buyer leaves for PayPal or receives a check invoice.</li>
+      <li><strong>Scan-to-engagement credit:</strong> if the customer begins a separately scoped and paid custom accessibility, remediation or build engagement within 60 calendar days after purchasing the $199 Advanced Accessibility Scan, Ability Bazaar will credit the amount actually paid for that scan toward the custom engagement. The credit is non-transferable, has no cash value, may be used once, and cannot exceed the price of the custom engagement.</li>
+      <li>If we cannot deliver a purchased scan (for example, your site cannot be reached), we will work with you to resolve it or refund the order in full.</li>
+      <li>If you are unsatisfied with a deliverable, contact us within 14 days and we will re-work it or refund you.</li>
+    </ul>
+
+    <h2>5. Acceptable use</h2>
+    <ul>
+      <li>Only request scans of websites you own or are authorized to have tested.</li>
+      <li>Do not attempt to disrupt, overload, probe, or gain unauthorized access to this website or its infrastructure.</li>
+      <li>Do not use our AI features to generate unlawful, harmful, or infringing content.</li>
+    </ul>
+
+    <h2>6. Reports and no-warranty of compliance</h2>
+    <p>Our $199 scan reports primarily reflect results detected by automated tools at a point in time, supplemented by the bounded expert review described above; they do not constitute a comprehensive manual assessment. Separately quoted detailed human-reviewed reports reflect a broader good-faith expert assessment at a point in time. Document remediation and verification improve accessibility against the stated criteria but do not by themselves establish that a customer's wider program, website or organization meets every legal obligation. Our findings and deliverables are not legal certifications of compliance with the ADA, Section 508, the European Accessibility Act, or any other law, and do not constitute legal advice.</p>
+
+    <h2>7. Limitation of liability</h2>
+    <p>To the maximum extent permitted by law, Vision-Aid's total liability arising out of any order or use of this website is limited to the amount you paid for the relevant order. We are not liable for indirect, incidental, or consequential damages.</p>
+
+    <h2>8. Privacy</h2>
+    <p>We collect only what we need to deliver services: contact details you submit, order details, and the results of scans you commission. We do not sell your data. Payment is handled entirely by PayPal. Inquiry and order records are stored securely on Google Cloud. To have your data removed, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+
+    <h2>9. Changes and contact</h2>
+    <p>We may update these terms from time to time; the "last updated" date above will change when we do. Questions? Contact <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+  </div>
+</section>
+
+{% endblock %}

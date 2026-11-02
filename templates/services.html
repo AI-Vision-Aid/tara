@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="page-head">
+  <div class="container">
+    <p class="eyebrow">Services · DATTC</p>
+    <h1>Website accessibility audits, accessible documents and inclusive digital builds</h1>
+    <p class="lede">Act on accessibility risk with a clear, bounded engagement: a $199 WCAG 2.2 website scan delivered in three business days, accessible PDF, Word and PowerPoint remediation, or a custom manual, assistive-technology or VPAT/ACR review.</p>
+    {% if launch_offer_active %}<p class="hero-note"><strong>Limited-time launch offer:</strong> new customers can use <strong>{{ launch_code }}</strong> for 50% off one eligible scan, build or document-remediation package through September 30, 2026. Document packages are $99.50, $249.50 or $449.50 with the code. One redemption per customer.</p>{% endif %}
+    <div class="cta-row">
+      <a class="btn btn-primary" href="{{ url_for('contact', interest='services', about='Custom human-reviewed accessibility scan', request_type='custom-quote') }}">Request an accessibility quote</a>
+      <a class="btn btn-secondary" href="{{ url_for('market.buy', sku='advanced-scan', coupon=launch_code if launch_offer_active else None) }}">Buy the $199 website scan</a>
+      <a class="btn btn-secondary" href="#documents">Make documents accessible</a>
+      <a class="btn btn-secondary" href="#able-free">Try a free ABLE screening</a>
+      <a class="btn btn-secondary" href="{{ url_for('service_landing', slug='ada-title-ii') }}">ADA Title II readiness</a>
+    </div>
+    <div class="callout">
+      <p><strong>Clear scope. Fast decision support. Meaningful impact.</strong> Scan up to 200 public pages, receive a prioritised report within three business days, and add focused review by an accessibility expert who is blind or has low vision. Every engagement funds paid, skilled work for professionals with disabilities.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section section-soft">
+  <div class="container">
+    {% include "_customer_proof.html" %}
+  </div>
+</section>
+
+<section class="section" aria-labelledby="offers-title" id="offers">
+  <div class="container">
+    <h2 id="offers-title">What we sell</h2>
+    <p class="section-lede">Fixed prices, stated limits and useful deliverables. Start with a free screening, buy a focused scan, remediate documents, launch a website or app, or ask us to scope something larger.</p>
+    <div class="grid-3">
+      {% for item in catalogue %}
+      <article class="card card-service">
+        <p class="tier-badge">{{ item.badge }}</p>
+        <h3>{{ item.name }}</h3>
+        <p class="tier-price">{{ item.price_label }}{% if launch_offer_active and item.cta == 'buy' %} <span class="proof-chip">50% off with {{ launch_code }}</span>{% endif %}</p>
+        <p>{{ item.summary }}</p>
+        <ul class="includes">
+          {% for line in item.includes %}<li>{{ line }}</li>{% endfor %}
+        </ul>
+        <p class="card-meta"><strong>Turnaround:</strong> {{ item.turnaround }}</p>
+        {% if item.cta == 'free' %}
+        <a class="btn btn-secondary" href="#able-free">{{ item.cta_label }}</a>
+        {% elif item.cta == 'buy' %}
+        <a class="btn btn-primary" href="{{ url_for('market.buy', sku=item.sku, coupon=launch_code if launch_offer_active else None) }}">{{ item.cta_label }}{% if launch_offer_active %} - use {{ launch_code }}{% endif %}</a>
+        {% if item.sku == 'advanced-scan' %}<a href="{{ url_for('service_landing', slug='website-accessibility-audit') }}">See the full audit scope and sample report</a>{% endif %}
+        {% else %}
+        <div class="card-actions">
+          <a class="btn btn-secondary" href="{{ url_for('contact', interest='services', about=item.quote_about or item.name, request_type='custom-quote') }}">{{ item.cta_label }}</a>
+          {% if item.sku == 'custom' %}
+          <a class="btn btn-primary" href="{{ url_for('market.custom_payment') }}">Make a Custom Payment (Credit Card/PayPal)</a>
+          <a class="btn btn-secondary" href="{{ url_for('market.custom_check_payment') }}">Make a Custom Payment (Check)</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </article>
+      {% if item.sku == 'advanced-scan' %}
+      <article class="card card-service" id="document-remediation-service">
+        <p class="tier-badge">PDF, Word &amp; PowerPoint</p>
+        <h3>Accessible Document Remediation</h3>
+        <p class="tier-price">From $199{% if launch_offer_active %} <span class="proof-chip">50% off with {{ launch_code }}</span>{% endif %}</p>
+        <p>Make PDFs, Word files and presentations accessible, with every file verified using NVDA or JAWS by a blind or low-vision professional.</p>
+        <ul class="includes">
+          <li>Fixed packages for up to 30, 90 or 180 standard pages</li>
+          <li>Relevant WCAG 2.2 criteria and applicable PDF/UA criteria</li>
+          <li>Accessible remediated files plus a concise delivery note</li>
+          <li>Custom quotes for Excel, complex forms and 500+ page collections</li>
+        </ul>
+        <p class="card-meta"><strong>Turnaround:</strong> 5 to 10 business days, depending on package, after usable source files arrive</p>
+        <a class="btn btn-primary" href="#documents">See document packages{% if launch_offer_active %} - use {{ launch_code }}{% endif %}</a>
+      </article>
+      {% endif %}
+      {% endfor %}
+    </div>
+    <p class="center"><strong>Start without locking yourself in:</strong> move from the $199 scan to a custom accessibility, remediation or build engagement within 60 days and we will credit the amount actually paid for the scan toward that engagement.</p>
+    <p class="center">Every order pays wages to accessibility experts with disabilities. Prefer to pay by check or purchase order? Choose "Pay by check" at checkout and we will issue an invoice, or <a href="{{ url_for('contact', interest='services') }}">talk to us first</a>.</p>
+  </div>
+</section>
+
+<section class="section section-soft" aria-labelledby="documents-title" id="documents">
+  <div class="container">
+    <p class="eyebrow">Accessible documents</p>
+    <h2 id="documents-title">Make your PDFs, Word files and presentations accessible.</h2>
+    <p class="section-lede">We remediate files against relevant WCAG 2.2 success criteria and, for PDFs, applicable PDF/UA criteria. Every file is verified with a real screen reader by a blind or low-vision professional before it comes back to you. Every order funds paid, skilled work for professionals with disabilities.</p>
+    <div class="callout">
+      <p><strong>Planning for a public-sector deadline?</strong> The U.S. Department of Justice extended the ADA Title II web and mobile accessibility deadlines to <strong>April 26, 2027</strong> for covered state and local public entities with populations of 50,000 or more, and <strong>April 26, 2028</strong> for smaller entities and special district governments. Documents can be covered, subject to the rule's defined exceptions. <a href="{{ url_for('guide', slug='ada-title-ii-2027-2028-deadline') }}">Read our source-backed plain-language guide</a>. This is general information, not legal advice.</p>
+    </div>
+    {% if launch_offer_active %}<p class="hero-note"><strong>New customers:</strong> 50% off one package with code <strong>{{ launch_code }}</strong> through September 30 - one redemption per customer.</p>{% endif %}
+    <div class="grid-3">
+      {% for item in document_catalogue %}
+      <article class="card card-service">
+        <p class="tier-badge">{{ item.badge }}</p>
+        <h3>{{ item.name }}</h3>
+        <p class="tier-price">{{ item.price_label }}{% if launch_offer_active %} <span class="proof-chip">{{ launch_code }}: ${{ '%.2f'|format(item.price_usd / 2) }}</span>{% endif %}</p>
+        <p>{{ item.summary }}</p>
+        <ul class="includes">
+          {% for line in item.includes %}<li>{{ line }}</li>{% endfor %}
+        </ul>
+        <p class="card-meta"><strong>Turnaround:</strong> {{ item.turnaround }}</p>
+        <a class="btn btn-primary" href="{{ url_for('market.buy', sku=item.sku, coupon=launch_code if launch_offer_active else None) }}">{{ item.cta_label }}{% if launch_offer_active %} - use {{ launch_code }}{% endif %}</a>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="center"><strong>Large collection?</strong> Custom-volume remediation starts at $6 per standard page for projects of 500 pages or more. <a href="{{ url_for('contact', interest='services', about='500+ page accessible document remediation', request_type='custom-quote') }}">Request a volume quote</a>. Complex pages count as two; Excel workbooks and complex fillable forms are custom-quoted.</p>
+    <p class="center"><a href="{{ url_for('service_landing', slug='document-remediation') }}">Read the complete document-remediation scope and FAQs</a>.</p>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="able-free-title" id="able-free">
+  <div class="container container-narrow">
+    {% set scan_compact = false %}
+    {% include "_free_scan_widget.html" %}
+  </div>
+</section>
+
+<section class="section" aria-labelledby="process-title">
+  <div class="container">
+    <h2 id="process-title">How an engagement works</h2>
+    <ol class="steps steps-5">
+      <li class="step"><span class="step-num" aria-hidden="true">1</span><h3>Request</h3><p>Buy an offer above, or tell us what you need and by when.</p></li>
+      <li class="step"><span class="step-num" aria-hidden="true">2</span><h3>Scope</h3><p>We agree on pages, platforms, standards and budget.</p></li>
+      <li class="step"><span class="step-num" aria-hidden="true">3</span><h3>Choose standard or custom</h3><p>The $199 service scans up to 200 public pages, validates up to 20 priority findings and adds focused checks on 3 key pages. For a comprehensive manual audit or assistive-technology testing, <a href="{{ url_for('contact', interest='services', about='Custom human-reviewed accessibility scan', request_type='custom-quote') }}">contact us for a custom quote</a>.</p></li>
+      <li class="step"><span class="step-num" aria-hidden="true">4</span><h3>Deliver</h3><p>You get prioritised findings with remediation guidance - or a working website or app with the source code, included support and hosting described in your package.</p></li>
+      <li class="step"><span class="step-num" aria-hidden="true">5</span><h3>Follow up</h3><p>Custom engagements can include human re-testing and conformance documentation when those services are included in your estimate.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="section section-soft" aria-labelledby="services-title" id="custom">
+  <div class="container">
+    <h2 id="services-title">What a custom engagement can include</h2>
+    <p class="section-lede">Need more than the bounded review included with the $199 scan, more screens or workflows than a launch package, native app-store delivery, or multiple integrations? We will scope it precisely. <a href="{{ url_for('contact', interest='services', about='Custom human-reviewed accessibility scan or larger build', request_type='custom-quote') }}">Use the contact form to request a custom quote</a>.</p>
+    <p class="metric-context">
+      <strong>{{ impact_snapshot.launch_context }}:</strong>
+      <time datetime="{{ impact_snapshot.launch_at_utc }}">{{ impact_snapshot.launch_label }}</time>
+      <span aria-hidden="true">•</span>
+      <strong>Metrics updated as of:</strong>
+      <time datetime="{{ impact_snapshot.updated_at_utc }}">{{ impact_snapshot.updated_label }}</time>
+    </p>
+    <div class="grid-2">
+      {% for s in services %}
+      <article class="card card-service">
+        <p class="badge badge-service">{{ s.tag }}</p>
+        <h3>{{ s.name }}</h3>
+        <p>{{ s.desc }}</p>
+        {% if s.proof %}<p><span class="proof-chip">{{ s.proof }}</span></p>{% endif %}
+      </article>
+      {% endfor %}
+      <article class="card card-service card-invite">
+        <p class="badge badge-invite">Custom</p>
+        <h3>Something else?</h3>
+        <p>Ongoing accessibility partnerships, retainers and bespoke engagements - tell us what you need and we will scope it together.</p>
+        <a class="btn btn-tertiary" href="{{ url_for('contact', interest='services') }}">Start a conversation</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="trust-title">
+  <div class="container">
+    <h2 id="trust-title">Why customers trust our testing center</h2>
+    <p class="section-lede">Ability Bazaar's services engine is Vision-Aid's
+    Digital Accessibility Testing &amp; Training Center (DATTC). Ability Bazaar
+    is new, but it can draw on Vision-Aid's more than two decades of experience
+    working with persons with visual disabilities and its extensive network to
+    scale trusted accessibility services quickly.</p>
+    <div class="grid-2">
+      {% for title, fact in dat_trust %}
+      <div class="card">
+        <h3>{{ title }}</h3>
+        <p>{{ fact }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="center">Trusted by universities and enterprises in the US and
+    India, including repeat institutional clients.
+    <a href="{{ dat_site_url }}" rel="external">Learn more at dat.visionaid.org</a>.</p>
+  </div>
+</section>
+
+<section class="section section-soft" aria-labelledby="faq-title" id="faq">
+  <div class="container">
+    <h2 id="faq-title">Frequently asked questions</h2>
+    <dl class="faq-list">
+      {% for question, answer in faqs %}
+      <dt>{{ question }}</dt>
+      <dd><p>{{ answer }}</p></dd>
+      {% endfor %}
+    </dl>
+  </div>
+</section>
+
+{% endblock %}
