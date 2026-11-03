@@ -5,6 +5,28 @@
     constructor(csrf, status) {
       this.csrf=csrf; this.status=status; this.epoch=0; this.sources=new Set();
     }
+    setWelcome(audio) {
+      this.welcomeAudio=audio;
+      if(audio){audio.preload='auto';audio.load();}
+    }
+    async playWelcome(onEnd) {
+      this.cancel(); const epoch=this.epoch, audio=this.welcomeAudio;
+      if(!audio)return false;
+      const active=()=>epoch===this.epoch;
+      this.audio=audio;audio.currentTime=0;
+      audio.onended=()=>{if(active()){this.audio=null;this.status('Ready. You can speak or type.');if(onEnd)onEnd();}};
+      audio.onerror=()=>{if(active()){this.cancel();this.status('The welcome is available as text. Select Start voice conversation to try again.',true);}};
+      try {
+        // Start in the original click gesture. No session, synthesis or POST wait.
+        const playback=audio.play();
+        if(playback)await playback;
+        if(active()){this.status('Tara is welcoming you. Use Stop voice to interrupt.');return true;}
+        return false;
+      } catch(error) {
+        if(active()){this.cancel();this.status('Select Start voice conversation to hear Tara, or type your message.',true);}
+        return false;
+      }
+    }
     async prime() {
       const AudioCtx=window.AudioContext||window.webkitAudioContext;
       if(!AudioCtx) return false;
@@ -23,6 +45,7 @@
       this.nextTime=0;
     }
     async play(id, mode, onEnd) {
+      if(id==='welcome' && this.welcomeAudio)return this.playWelcome(onEnd);
       this.cancel(); const epoch=this.epoch;
       const controller=new AbortController();this.controller=controller;
       const active=()=>epoch===this.epoch && !controller.signal.aborted;

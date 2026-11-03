@@ -7,10 +7,16 @@
   const dialog = document.getElementById('tara-dialog');
   const mode = app.dataset.mode;
   let state, busy = false, voiceMode = false, recognition, recorder, stream, recordTimer, meterTimer, context;
-  let reviewKind = 'help', reviewToken = '', lastReply = 'welcome';
+  let reviewKind = 'help', reviewToken = '', lastReply = 'welcome', welcomeSpoken = false;
   const csrf = document.querySelector('meta[name="csrf-token"]').content;
   const status = (text, error=false) => { $('status').textContent=text; $('status').classList.toggle('tara-error',error); };
   const speech = new window.TaraAudio(csrf,status);
+  speech.setWelcome($('welcome-audio'));
+  function greetOnOpen() {
+    if(welcomeSpoken)return;
+    welcomeSpoken=true;
+    speech.play('welcome',mode).then(started=>{if(started===false)welcomeSpoken=false;});
+  }
   function stopTracks() {
     if(stream) stream.getTracks().forEach(t=>t.stop());
     stream=null; clearTimeout(recordTimer); clearInterval(meterTimer);
@@ -117,20 +123,20 @@
       // End a voice turn after speech followed by a short silence; no recording
       // is kept in the browser after it has been sent for transcription.
       const AudioCtx=window.AudioContext||window.webkitAudioContext;
-      if(AudioCtx){context=new AudioCtx();const source=context.createMediaStreamSource(stream),analyser=context.createAnalyser();source.connect(analyser);analyser.fftSize=512;const samples=new Uint8Array(512);let heard=false,lastSound=Date.now(),started=Date.now();meterTimer=setInterval(()=>{analyser.getByteTimeDomainData(samples);const energy=samples.reduce((s,v)=>s+(v-128)**2,0)/samples.length;if(energy>35){heard=true;lastSound=Date.now();}if(heard&&Date.now()-lastSound>1300&&Date.now()-started>1800&&recorder.state==='recording')recorder.stop();},150);}
+      if(AudioCtx){context=new AudioCtx();const source=context.createMediaStreamSource(stream),analyser=context.createAnalyser();source.connect(analyser);analyser.fftSize=512;const samples=new Uint8Array(512);let heard=false,lastSound=Date.now(),started=Date.now();meterTimer=setInterval(()=>{analyser.getByteTimeDomainData(samples);const energy=samples.reduce((s,v)=>s+(v-128)**2,0)/samples.length;if(energy>35){heard=true;lastSound=Date.now();}if(heard&&Date.now()-lastSound>800&&Date.now()-started>1200&&recorder.state==='recording')recorder.stop();},150);}
     }catch(e){stopTracks();status('Microphone access was not granted. You can use the message box instead.',true);}
   }
   $('voice').addEventListener('click',()=>{
     if(recorder&&recorder.state==='recording'){recorder.stop();return;}
     if(recognition){recognition.stop();return;}
     speech.prime().catch(()=>{});
-    voiceMode=true;if(state&&state.history.length===1)speak('welcome',true);else listen();
+    voiceMode=true;if(!welcomeSpoken){welcomeSpoken=true;speak('welcome',true);}else listen();
   });
   $('stop').addEventListener('click',stopVoice);
   $('repeat').addEventListener('click',()=>{speech.prime().catch(()=>{});stopListening();speak(lastReply,false);});
   $('chat-form').addEventListener('submit',e=>{e.preventDefault();send($('message').value);});
   document.querySelectorAll('[data-tara-prompt]').forEach(b=>b.addEventListener('click',()=>send(b.dataset.taraPrompt)));
-  $('reset').addEventListener('click',async()=>{stopVoice();try{render(await api('reset',{}));status('A new conversation is ready.');}catch(e){status(e.message,true);}});
+  $('reset').addEventListener('click',async()=>{stopVoice();welcomeSpoken=false;try{render(await api('reset',{}));status('A new conversation is ready.');greetOnOpen();}catch(e){status(e.message,true);}});
   function review(kind) {
     const wasVoice=voiceMode;stopVoice(); reviewKind=kind;reviewToken='';$('sandbox-confirm').hidden=true;$('review-form').hidden=false;
     $('review').hidden=false;
@@ -172,10 +178,13 @@
     catch(e){status(e.message,true);$('paypal').disabled=false;}
   });
   document.querySelectorAll('[data-tara-open]').forEach(link=>link.addEventListener('click',e=>{
-    if(dialog){e.preventDefault();dialog.showModal();$('message').focus();}
+    if(dialog){e.preventDefault();dialog.showModal();$('message').focus();greetOnOpen();}
   }));
   const close=document.getElementById('tara-close');if(close)close.addEventListener('click',()=>dialog.close());
   if(dialog)dialog.addEventListener('close',stopVoice);
+  // The dedicated Tara page may speak on arrival where browser policy permits.
+  // A blocked autoplay leaves the explicit Start voice button available.
+  if(!dialog)greetOnOpen();
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stopVoice();});
   window.addEventListener('pagehide',stopVoice);
   // Only fill explicitly allowlisted fields on the expected existing form.

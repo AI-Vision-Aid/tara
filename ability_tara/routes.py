@@ -32,9 +32,9 @@ _slots = threading.BoundedSemaphore(3)
 _db = None
 _client = None
 _reference_cache = None
-GREETING = ("Hello, I'm Tara, Ability Bazaar's AI assistant. I can help you explore "
-            "our services and apps, answer questions, and prepare a request or order. "
-            "What would you like to do today?")
+GREETING = ("Welcome to Ability Bazaar! I'm Tara, your AI assistant. I can help with "
+            "accessibility testing, accessible documents, building websites and apps, "
+            "or exploring our free apps. What would you like help with today?")
 FALLBACK = ("I don't have a verified answer to that. I can help you prepare a "
             "customer-service request so the team can follow up with you.")
 FIELD_LIMITS = {'name':120, 'email':254, 'organization':200,
@@ -110,6 +110,12 @@ def reference_pages():
     global _reference_cache
     if _reference_cache is not None:
         return _reference_cache
+    # These public excerpts are prepared with the release. Do not render eight
+    # pages (and initialize unrelated cloud clients) on the first customer turn.
+    packaged = Path(__file__).with_name('reference_pages.json')
+    if packaged.exists():
+        _reference_cache = json.loads(packaged.read_text(encoding='utf-8'))
+        return _reference_cache
     import app as site
     if hasattr(site, 'TARA_REFERENCE_PAGES'):
         return site.TARA_REFERENCE_PAGES
@@ -135,10 +141,56 @@ def reference_pages():
     return pages
 
 
-def knowledge():
+def relevant_pages(pages, query):
+    """Bound supporting excerpts; the entire exact service/app catalogue stays.
+
+    This selects evidence, never generates facts, pricing or an action. Missing
+    details still use the existing human-request fallback.
+    """
+    stop = {'the','and','for','with','what','your','about','that','this','have','can',
+            'would','could','want','need','please','help','you','are','our','how',
+            'tell','does','from','some','like','today','offer','offers'}
+    terms = {t for t in re.findall(r'[a-z0-9]+', query.lower()) if len(t)>2 and t not in stop}
+    groups = [({'pdf','word','powerpoint','document','documents','remediation'},
+               {'pdf','word','powerpoint','document','remediation'}),
+              ({'sponsor','sponsorship','fellow','fellows','training'},
+               {'sponsor','fellow','training'}),
+              ({'free','maya','saarthi','english','apps'}, {'apps','maya','saarthi'}),
+              ({'build','website','websites','testing','audit','scan','quote'},
+               {'services','build','website','testing','scan'}),
+              ({'refund','support','late','contact','response'}, {'support','contact','refund'}),
+              ({'creator','tester','join','partner','volunteer'}, {'creator','tester','partner'}),
+              ({'donate','donation','gift'}, {'donate','donation'})]
+    for triggers, synonyms in groups:
+        if terms & triggers:
+            terms |= synonyms
+    def score(page):
+        words = set(re.findall(r'[a-z0-9]+',page['text'].lower()))
+        return len(terms & words) + 3*sum(t in page['path'] for t in terms)
+    ranked = sorted(pages,key=score,reverse=True)
+    chosen = [p for p in ranked if score(p)>0][:2] or pages[:2]
+    result=[]
+    for page in chosen:
+        text=page['text']; spans=[]
+        for match in re.finditer(r'[a-z0-9]+',text.lower()):
+            if match.group() in terms:
+                start=max(0,match.start()-180); end=min(len(text),match.end()+420)
+                if spans and start<=spans[-1][1]:
+                    spans[-1]=(spans[-1][0],max(end,spans[-1][1]))
+                else:
+                    spans.append((start,end))
+        excerpt='\n…\n'.join(text[a:b] for a,b in spans)[:2600] if spans else text[:1800]
+        result.append({'path':page['path'],'text':excerpt})
+    return result
+
+
+def knowledge(query=None):
     # Use the exact same catalogue objects as checkout, not duplicated prices.
     from app import APPS, INTERESTS
-    return {'services':CATALOGUE, 'apps':APPS, 'public_pages':reference_pages(), 'contact_interests':INTERESTS,
+    pages = reference_pages()
+    if query is not None:
+        pages = relevant_pages(pages, query)
+    return {'services':CATALOGUE, 'apps':APPS, 'public_pages':pages, 'contact_interests':INTERESTS,
             'organization':"Ability Bazaar is owned and operated by Vision-Aid, Inc., a US nonprofit. People with disabilities build accessible apps and deliver services.",
             'policies':[
                 'Custom work and native app-store builds need a human-approved quote.',
@@ -188,8 +240,36 @@ PLAN_SCHEMA = {'type':'object','properties':{
     'required':['reply','sku','action','fields','interest','sources']}
 
 
+def quick_plan(message):
+    """Answer narrow catalogue introductions without waiting for generation.
+
+    Only exact, general questions qualify; requirements, personal details,
+    pricing exceptions and unfamiliar questions still take the grounded AI path.
+    """
+    normalized=' '.join(re.findall(r'[a-z0-9]+',message.lower()))
+    if normalized in {'hello','hi','hey','what can you do','how can you help me','what services do you offer'}:
+        return {'reply':GREETING,'action':'browse','sku':'','fields':{},'sources':['/apps','/services']}
+    if normalized in {'tell me about your free apps','tell me about your free apps and how i can try them','what free apps do you have','show me your free apps','explore free apps'}:
+        return {'reply':'Maya offers voice-first interview practice. Saarthi helps you understand what is said and shown in meetings. Both are free apps; Saarthi’s full Windows experience needs your own provider keys and usage charges may apply. Which would you like to explore?',
+                'action':'browse','sku':'','fields':{},'sources':['/apps','saarthi']}
+    if normalized in {'i need accessible pdf files what do you offer','what document remediation services do you offer','tell me about document remediation','i need accessible documents','i need accessible documents help me choose a suitable service'}:
+        docs=[item for item in CATALOGUE if item['sku'] in ('doc-starter','doc-standard','doc-pro')]
+        return {'reply':'We make PDF, Word and PowerPoint documents accessible, with screen-reader validation. Published options include '+', '.join(item['name'] for item in docs)+'. How many pages do you have, and are there tables, forms or scanned pages?',
+                'action':'browse','sku':'','fields':{},'sources':['/services']}
+    if normalized in {'i need a website','i want a website','can you build a website','i would like a website','i d like to build a website help me understand the options','i d like to build an app what can you help with'}:
+        return {'reply':'We offer Starter and Growth packages for websites, web apps and AI prototypes. Larger or custom projects need a team-approved quote. What should your website do, and roughly how many pages do you need?',
+                'action':'browse','sku':'','fields':{},'sources':['/services']}
+    if normalized=='i d like an accessibility scan what is included':
+        item=next(i for i in CATALOGUE if i['sku']=='advanced-scan')
+        return {'reply':item['summary']+' Comprehensive manual or assistive-technology testing needs a separate quote. Would you like the published scan details or a deeper review?',
+                'action':'browse','sku':'advanced-scan','fields':{},'sources':['/services']}
+    return None
+
+
 def propose(state, message):
-    prompt = json.dumps({'VERIFIED_CATALOGUE':knowledge(),
+    query = ' '.join([str(state.get('sku') or ''), message] +
+                     [m['text'] for m in state['history'][-4:] if m['role']=='user'])
+    prompt = json.dumps({'VERIFIED_CATALOGUE':knowledge(query),
                          'draft':{'sku':state['sku'],'fields':state['fields']},
                          'conversation':state['history'][-18:], 'customer':message,
                          'current_form_guidance':state.get('form_guidance','')}, ensure_ascii=False)
@@ -198,7 +278,7 @@ def propose(state, message):
             break
         result = ai_client().interactions.create(
             model=os.environ.get('TARA_MODEL', 'gemini-3.6-flash'), input=prompt,
-            system_instruction=SYSTEM,
+            system_instruction=SYSTEM, store=False,
             response_format={'type':'text','mime_type':'application/json','schema':PLAN_SCHEMA},
             generation_config={'thinking_level':'low','max_output_tokens':4096})
         text = (result.output_text or '').strip()
@@ -259,6 +339,20 @@ def _apply(state, plan):
         for k, limit in FIELD_LIMITS.items():
             if isinstance(fields.get(k), str) and fields[k].strip():
                 state['fields'][k] = fields[k].strip()[:limit]
+    # Preserve an explicitly supplied contact address even if model extraction
+    # misses it; never treat a standalone email address as a website URL.
+    supplied=re.search(r'\b(?:my\s+e-?mail(?:\s+address)?(?:\s+is)?|e-?mail(?:\s+address)?(?:\s+is)?(?=\s*[:=]?\s*[\w.+%-]+@))\s*[:=]?\s*([\w.+%-]+@[\w.-]+\.[a-z]{2,})',question,re.I)
+    explicit_contact = bool(re.search(r'\bmy\s+(?:name|e-?mail)\b',question,re.I)
+                            or re.match(r'^\s*e-?mail(?:\s+address)?\s*[:=]',question,re.I))
+    if supplied and explicit_contact:
+        state['fields']['email']=supplied.group(1)[:FIELD_LIMITS['email']]
+    if re.fullmatch(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}',state['fields'].get('target_url',''),re.I):
+        state['fields'].pop('target_url',None)
+    if action=='order' and not state['fields'].get('notes'):
+        # Keep the visitor's actual words reviewable if extraction omitted a
+        # brief. This is a transcript fallback, never an invented requirement.
+        state['fields']['notes']='\n'.join(m['text'] for m in state['history']
+                                           if m['role']=='user')[-FIELD_LIMITS['notes']:]
     from app import INTERESTS
     interest = plan.get('interest')
     if interest in dict(INTERESTS):
@@ -347,18 +441,19 @@ def chat():
         state['form_guidance'] = ('The visitor is on the real contact form. Close Tara, review name, email, interest and question. '
             'The visitor activates Send message themselves. Some custom-quote forms use Request my quote and require organization, '
             'organization type, need and timeline. Never claim receipt without the site confirmation.')
+    prepared=quick_plan(data['message'].strip())
     def call():
         # Serialize each conversation so overlapping messages cannot reorder a draft.
         if not state['turn_lock'].acquire(blocking=False):
             return jsonify(error='Please wait for Tara to finish the previous reply.'), 409
         try:
-            plan = propose(state, data['message'].strip())
+            plan = prepared if prepared is not None else propose(state, data['message'].strip())
             state['history'].append({'role':'user','text':data['message'].strip()})
             _apply(state, plan)
             return jsonify(_view(state))
         finally:
             state['turn_lock'].release()
-    return provider(call)
+    return call() if prepared is not None else provider(call)
 
 
 @bp.post('/api/tara/transcribe')
@@ -395,10 +490,12 @@ def voice():
     entry = next((m for m in state['history'] if m.get('id') == data.get('message_id') and m['role'] == 'assistant'), None)
     if not entry:
         return jsonify(error='Choose a Tara reply to hear.'), 400
-    welcome = Path(__file__).resolve().parents[1] / 'static/audio/tara/welcome.wav'
+    welcome = Path(__file__).resolve().parents[1] / 'static/audio/tara/welcome-v371.mp3'
+    if not welcome.exists():
+        welcome = welcome.with_name('welcome.wav')
     if entry['id'] == 'welcome' and welcome.exists():
         from flask import send_file
-        return send_file(welcome, mimetype='audio/wav', max_age=0)
+        return send_file(welcome, mimetype='audio/mpeg' if welcome.suffix=='.mp3' else 'audio/wav', max_age=0)
     def call():
         from google.genai import types
         result = ai_client().models.generate_content(

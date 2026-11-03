@@ -41,3 +41,21 @@ test('Network truncation stops queued audio and reports text fallback',async()=>
   const line='{"sample_rate":24000}\n{"audio":"'+s.chunk+'"}\n';s.write(line.slice(0,27));s.write(line.slice(27));s.end();await playing;
   assert.ok(s.sources.every(x=>x.stopped));assert.equal(s.resumed(),0);assert.match(s.statuses.at(-1),/interrupted/);
 });
+
+test('Welcome starts from prepared audio without a session, synthesis request or complete-file fetch',async()=>{
+  const s=setup();let loaded=0,played=0;
+  const welcome={currentTime:8,load(){loaded++;},play(){played++;this.paused=false;return Promise.resolve();},pause(){this.paused=true;}};
+  s.audio.setWelcome(welcome);
+  const playing=s.audio.play('welcome','sandbox',s.onEnd);
+  assert.equal(played,1);assert.equal(loaded,1);assert.equal(welcome.currentTime,0);
+  assert.equal(s.signal(),undefined);await playing;
+  assert.equal(s.resumed(),0);welcome.onended();assert.equal(s.resumed(),1);
+});
+test('Closing during a pending welcome prevents late playback callbacks and microphone resume',async()=>{
+  const s=setup();let start;
+  const welcome={currentTime:0,load(){},play(){return new Promise(resolve=>{start=resolve;});},pause(){this.paused=true;}};
+  s.audio.setWelcome(welcome);const playing=s.audio.play('welcome','sandbox',s.onEnd);
+  const lateEnd=welcome.onended;s.audio.cancel();start();await playing;lateEnd();
+  assert.equal(welcome.paused,true);assert.equal(s.resumed(),0);
+  assert.ok(!s.statuses.some(x=>x.includes('welcoming')));
+});

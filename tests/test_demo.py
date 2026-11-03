@@ -19,6 +19,14 @@ class DemoTests(unittest.TestCase):
         self.assertIn(b'Read my draft aloud',page.data)
         self.assertIn(b'PayPal sandbox demonstration',page.data)
 
+    def test_welcome_is_prepared_and_catalogue_introductions_need_no_provider(self):
+        self.assertEqual(self.client.get('/static/audio/tara/welcome-v371.mp3').status_code,200)
+        with patch.object(tara,'propose') as provider,patch.object(tara,'reserve_call',return_value=False):
+            response=self.client.post('/api/tara/chat',json={'message':'Tell me about your free apps.'},headers=self.headers)
+        self.assertEqual(response.status_code,200)
+        self.assertIn('Maya',response.json['history'][-1]['text'])
+        provider.assert_not_called()
+
     def test_csrf_precedes_any_provider_call(self):
         with patch.object(tara,'propose') as model:
             self.assertEqual(self.client.post('/api/tara/chat',json={'message':'Hello'}).status_code,400)

@@ -98,3 +98,22 @@ Maya/Saarthi applications remain separate.
 Code is MIT licensed. Vision-Aid and Ability Bazaar names and marks identify
 their owners; no endorsement by PayPal or Google is implied. Google API output
 was used to create the included Zephyr welcome recording.
+
+## Opening welcome and response timing
+
+On Ability Bazaar, the first **Talk to Tara** activation opens the panel and
+plays a prepared Zephyr welcome. It introduces accessibility testing, document
+remediation, website/app development and free apps without waiting for a model
+or session request. **Start voice conversation** remains the explicit microphone
+action. Stop, close and page hiding cancel speech. The same page does not repeat
+the welcome each time the conversation is reopened.
+
+The standalone page attempts its welcome on arrival. If the browser blocks
+autoplay, select **Start voice conversation** to hear it and begin. You can
+always type instead.
+
+The full exact service/app catalogue stays in every model request. Supporting
+public-page excerpts are selected locally from packaged evidence, avoiding
+runtime page rendering and repeated unrelated text. Model conversations are
+stateless (`store=False`); the server continues to maintain the reviewed draft.
+Prepared audio and the streaming speech format remain independently runnable.
