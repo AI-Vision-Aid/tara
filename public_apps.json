@@ -21,7 +21,7 @@
     "slug": "sep-ai-tutor",
     "name": "SEP AI Tutor",
     "status": "live",
-    "status_label": "Live - anchor app",
+    "status_label": "Coaching program — access by request",
     "tagline": "Speak English with confidence.",
     "desc": "A voice-first AI tutor for spoken-English practice, designed with and for visually impaired learners in Vision-Aid's Spoken English Program. Conversational coaching with support for more than 12 Indian coaching languages.",
     "audience": "Learners, schools and coaching centres",
@@ -30,24 +30,23 @@
       "12+ Indian coaching languages",
       "Built by the Vision-Aid AI Development Center"
     ],
-    "proof": "Live anchor app",
-    "cta": "Request a pilot",
+    "proof": "Ask the team about access",
+    "cta": "Ask about program access",
     "interest": "app-pilot"
   },
   {
     "slug": "arohi",
     "name": "Arohi",
     "status": "pilot",
-    "status_label": "Pilot in scoping",
+    "status_label": "Institutional pilot — enquire",
     "tagline": "Our next institutional app.",
-    "desc": "Built by the Vision-Aid AI Development Center, with the American India Foundation (AIF) as a prospective first institutional customer. Pilot scoping is underway.",
+    "desc": "An institutional app project from Vision-Aid's AI Development Center. Contact the team for current pilot availability and participation.",
     "audience": "Institutions and NGO programs",
     "facts": [
-      "Prospective customer: AIF",
-      "Institutional pilot pathway",
-      "Lived-experience validation built in"
+      "Institutional pilot enquiry",
+      "Availability confirmed by the team"
     ],
-    "proof": "Institutional pilot in scoping",
+    "proof": "Pilot information by request",
     "cta": "Ask about Arohi",
     "interest": "app-pilot"
   },
@@ -56,14 +55,14 @@
     "name": "Nidra",
     "status": "prototype",
     "status_label": "Working prototype",
-    "tagline": "A prototype with commercial promise.",
-    "desc": "A working prototype from the AI Development Center, identified as a candidate for commercialization. Now being evaluated for the Ability Bazaar launch catalogue.",
+    "tagline": "An AI Development Center prototype.",
+    "desc": "A prototype from Vision-Aid's AI Development Center. Ask the team about its current demonstration, evaluation and availability.",
     "audience": "Individuals",
     "facts": [
-      "Built by PwD-led team",
-      "Candidate for launch catalogue"
+      "Prototype evaluation",
+      "Availability confirmed by the team"
     ],
-    "proof": "Working prototype",
+    "proof": "Prototype enquiry",
     "cta": "Ask about Nidra",
     "interest": "app-pilot"
   },
@@ -71,60 +70,60 @@
     "slug": "document-companion",
     "name": "Document Companion",
     "status": "concept",
-    "status_label": "Launch catalogue - planned",
+    "status_label": "Concept — not yet available",
     "tagline": "Understand any document, independently.",
-    "desc": "Reads, summarises and explains letters, notices and paperwork in plain language and audio. One of the 3-5 focused mini-apps planned for the launch catalogue.",
+    "desc": "Reads, summarises and explains letters, notices and paperwork in plain language and audio.",
     "audience": "Individuals and institutions",
     "facts": [
-      "Planned launch catalogue",
+      "Proposed concept",
       "Audio-first output"
     ],
-    "cta": "Join the waitlist",
+    "cta": "Discuss this idea",
     "interest": "app-pilot"
   },
   {
     "slug": "form-helper",
     "name": "Form Helper",
     "status": "concept",
-    "status_label": "Launch catalogue - planned",
+    "status_label": "Concept — not yet available",
     "tagline": "Complete forms without asking for help.",
     "desc": "Step-by-step, voice-guided assistance for government, banking and everyday forms - a repeated, lower-risk problem with clear user value.",
     "audience": "Individuals",
     "facts": [
-      "Planned launch catalogue",
+      "Proposed concept",
       "Guided, step-by-step flow"
     ],
-    "cta": "Join the waitlist",
+    "cta": "Discuss this idea",
     "interest": "app-pilot"
   },
   {
     "slug": "mobile-technology-coach",
     "name": "Mobile Technology Coach",
     "status": "concept",
-    "status_label": "Launch catalogue - planned",
+    "status_label": "Concept — not yet available",
     "tagline": "Master the phone in your pocket.",
     "desc": "Patient, practical coaching on smartphone accessibility features - screen readers, magnification, voice control - at the learner's own pace.",
     "audience": "Individuals and training centres",
     "facts": [
-      "Planned launch catalogue",
+      "Proposed concept",
       "Self-paced lessons"
     ],
-    "cta": "Join the waitlist",
+    "cta": "Discuss this idea",
     "interest": "app-pilot"
   },
   {
     "slug": "workplace-coach",
     "name": "Workplace Coach",
     "status": "concept",
-    "status_label": "Launch catalogue - planned",
+    "status_label": "Concept — not yet available",
     "tagline": "Discreet support on the job.",
     "desc": "Practical workplace and learning support for employees with disabilities - and a workplace access package employers can fund.",
     "audience": "Employers and employees",
     "facts": [
-      "Planned launch catalogue",
+      "Proposed concept",
       "Employer access package"
     ],
-    "cta": "Join the waitlist",
+    "cta": "Discuss this idea",
     "interest": "enterprise"
   }
 ]
