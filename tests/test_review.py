@@ -10,7 +10,7 @@ class ReviewRegressions(TestCase):
     def setUp(self):
         for target,name,value in [(tara,'reserve_call',lambda:True),(tara,'rate_limited',lambda *args:False)]:
             p=patch.object(target,name,value);p.start();self.addCleanup(p.stop)
-        self.c=site.app.test_client();self.c.get('/tara?demo=1')
+        self.c=site.app.test_client();self.c.get('/tara')
         with self.c.session_transaction() as s:self.h={'X-CSRF-Token':s['csrf_token']}
     def chat(self,text,plan=None,error=None):
         with patch.object(tara,'propose',return_value=plan or {'reply':'Please review.','sku':'static-site','action':'order','fields':{}},side_effect=error):
@@ -96,6 +96,10 @@ class PlanConstraints(TestCase):
         self.assertFalse(schema['additionalProperties']);self.assertEqual(schema['properties']['sources']['maxItems'],6)
 
 class DocumentScope(ReviewRegressions):
+    def test_website_menu_page_is_not_a_document_remediation_request(self):
+        data=self.chat('Choose Starter Website or App Build. Five pages: Home, Menu, Catering, About and Contact.',{'reply':'Please review your website request.','sku':'static-site','action':'order','fields':{}}).json
+        self.assertNotIn('document remediation',data['history'][-1]['text'])
+        self.assertIn('website request',data['history'][-1]['text'])
     def test_unconfirmed_scanned_document_scope_is_not_calculated_as_a_known_page_total(self):
         data=self.chat('I have 40 scanned Hindi menus; page count unknown.',{'reply':'Your 40 menus fit Standard at 80 pages.','sku':'doc-standard','action':'browse','fields':{}}).json
         self.assertNotIn('80 pages',data['history'][-1]['text']);self.assertIn('confirm',data['history'][-1]['text'])
