@@ -37,6 +37,8 @@ class ReviewRegressions(TestCase):
     def test_percentage_is_not_mistaken_for_a_price(self):
         data=self.chat('Can you explain contrast?',{'reply':'Contrast affects 100% of the text, but guarantees need review.','fields':{}}).json
         self.assertIn('100%',data['history'][-1]['text'])
+        data=self.chat('I need custom work.',{'reply':'Larger or custom projects need a team-approved quote.','sku':'','action':'browse','fields':{}}).json
+        self.assertIn('custom projects',data['history'][-1]['text']);self.assertNotIn('Anything larger projects',data['history'][-1]['text'])
     def test_generated_identifiers_and_website_not_supplied_by_customer_are_removed(self):
         data=self.chat('My email is alex@example.com. I need a bakery website.',{'reply':'Choose Starter Website or App Build [static-site].','sku':'static-site','action':'order','fields':{'target_url':'https://example.com'}}).json
         self.assertNotIn('[static-site]',data['history'][-1]['text']);self.assertNotIn('target_url',data['fields'])

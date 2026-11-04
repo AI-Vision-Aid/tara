@@ -380,7 +380,8 @@ def _apply(state, plan):
     reply=re.sub(r'\[(?:'+ '|'.join(re.escape(i['sku']) for i in CATALOGUE)+r')\]','',reply).replace('  ',' ').strip()
     reply=re.sub(r'\s*\((?:sku:\s*)?(?:'+'|'.join(re.escape(i['sku']) for i in CATALOGUE)+r')\)','',reply,flags=re.I)
     for product in CATALOGUE:
-        reply=re.sub(r'\b'+re.escape(product['sku'])+r'\b',product['name'],reply,flags=re.I)
+        if '-' in product['sku']:
+            reply=re.sub(r'\b'+re.escape(product['sku'])+r'\b',product['name'],reply,flags=re.I)
     sku = str(plan.get('sku') or '')
     if not sku:
         named=[i for i in CATALOGUE if i['name'].lower() in reply.lower()]
