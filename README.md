@@ -158,3 +158,7 @@ Catalogue navigation may open the real Ability Bazaar site; the local `/buy/`
 path shows a sandbox notice and never redirects into live checkout. This source
 has no judge buyer password or API key. Claude independently reviewed the earlier
 draft; the team evaluated its findings and implemented accepted changes with Codex.
+
+## Reproduce the synthetic journey evaluation
+
+With the app running, use `python scripts/evaluate_journeys.py --base http://127.0.0.1:8080 --output tara-evaluation`. The explicit target avoids accidentally testing the public site. This makes 60 synthetic journeys / 66 chat turns plus reset requests, uses configured model quota, respects the request throttle and creates no orders, inquiries or emails. It writes full synthetic responses and timing; it is not human usability or assistive-technology testing. For hosted evaluation use a staging URL and ensure quota is available.
