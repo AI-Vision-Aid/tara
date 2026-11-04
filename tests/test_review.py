@@ -56,6 +56,9 @@ class ReviewRegressions(TestCase):
                 created=self.c.post('/api/tara/checkout',json={'review_token':prep['review_token'],'confirmed':True},headers=self.h).json
                 body=gateway.call_args.args[2];self.assertIn('bakery',body['purchase_units'][0]['description'])
                 self.assertNotIn('alex@example.com',str(body));self.assertEqual(body['purchase_units'][0]['amount']['value'],'500.00')
+                unit=body['purchase_units'][0];self.assertEqual(unit['amount']['breakdown']['item_total'],unit['items'][0]['unit_amount'])
+                self.assertEqual(unit['items'][0]['quantity'],'1');self.assertIn('bakery',unit['items'][0]['description'])
+                self.assertEqual(unit['items'][0]['category'],'DIGITAL_GOODS')
             ref=created['reference'];tara._states.clear()
             payload={'id':'TEST-ORDER','status':'COMPLETED','purchase_units':[{'reference_id':ref,'custom_id':ref,'payments':{'captures':[{'id':'TEST-CAPTURE','status':'COMPLETED','create_time':'2026-11-04T01:00:00Z','custom_id':ref,'amount':{'value':'500.00','currency_code':'USD'}}]}}]}
             with patch.object(tara,'paypal',return_value=payload) as gateway:

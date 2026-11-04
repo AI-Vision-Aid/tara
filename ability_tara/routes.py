@@ -822,7 +822,7 @@ def prepare():
         state['review'] = {'token':token,'sku':sku,'fields':fields,
                            'amount':item['price_usd'],'created':time.time()}
         return jsonify(kind='sandbox', review_token=token, item=item,
-                       message='Review complete. The next button opens PayPal Sandbox. No real money or service fulfillment is involved.')
+                       message='PayPal will receive this summary: '+payment_description(item,fields['notes'])+'. Test money only; no service is commissioned.')
     interest = state.get('interest', 'other')
     form = {'name':fields['name'],'email':fields['email'],
             'organization':fields['organization'],'interest':interest,
@@ -859,11 +859,22 @@ def payment_summary(text):
     count=re.search(r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:web\s+)?pages?\b',text,re.I)
     requested=([count.group(0)] if count else [])+re.findall(r'\b(?:bakery|catering (?:request )?form|opening hours|(?:large )?readable text|keyboard(?:-friendly)? navigation|calendar|reminders|Hindi|English|scanned (?:PDF|files?|documents?)|tables?|offline)\b',text,re.I)
     if requested:
-        return ('Requested: '+'; '.join(dict.fromkeys(t.lower() for t in requested)))[:90]
+        short=[t.lower().replace('catering request form','catering form').replace('large readable text','readable text') for t in requested]
+        return trim_summary('Requested: '+'; '.join(dict.fromkeys(short)),90)
     text=re.sub(r'\bmy\s+(?:name|email|organization)\s+(?:is\s+)?[^.!\n]{0,150}[.!\n]?','',text,flags=re.I)
     parts=[p.strip() for p in re.split(r'(?<=[.!?])\s+|\n+',text) if re.search(r'pages?|website|document|PDF|forms?|build|app|scan',p,re.I) and not re.match(r'^(?:choose|my name|use synthetic|email)',p,re.I)]
     if parts:text=max(parts,key=len)
-    return ' '.join(text.split())[:90]
+    return trim_summary(' '.join(text.split()),90)
+
+
+def trim_summary(text,limit):
+    if len(text)<=limit:return text
+    prefix=text[:limit]
+    return (prefix.rsplit(' ',1)[0] if ' ' in prefix else prefix).rstrip(';,.-')
+
+
+def payment_description(item,notes):
+    return trim_summary('SANDBOX - '+item['name']+' - '+payment_summary(notes),127)
 
 
 @bp.post('/api/tara/checkout')
@@ -880,10 +891,12 @@ def checkout():
     # Price always comes from the current catalogue, never a model or browser.
     amount = f"{Decimal(str(item['price_usd'])):.2f}"
     return_base = request.host_url.rstrip('/')
-    summary=('SANDBOX - '+item['name']+' - '+payment_summary(review['fields']['notes']))[:127]
+    summary=payment_description(item,review['fields']['notes'])
     body = {'intent':'CAPTURE','purchase_units':[{'reference_id':ref,'custom_id':ref,
         'description':summary,
-        'amount':{'currency_code':'USD','value':amount}}],
+        'items':[{'name':'SANDBOX - '+item['name'],'description':payment_summary(review['fields']['notes']),
+                  'quantity':'1','category':'DIGITAL_GOODS','unit_amount':{'currency_code':'USD','value':amount}}],
+        'amount':{'currency_code':'USD','value':amount,'breakdown':{'item_total':{'currency_code':'USD','value':amount}}}}],
         'payment_source':{'paypal':{'experience_context':{'brand_name':'Ability Bazaar - Tara demo',
             'shipping_preference':'NO_SHIPPING','user_action':'PAY_NOW',
             'return_url':return_base+'/tara/paypal/return?ref='+ref,
