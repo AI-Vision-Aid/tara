@@ -37,6 +37,13 @@ class ReviewRegressions(TestCase):
     def test_percentage_is_not_mistaken_for_a_price(self):
         data=self.chat('Can you explain contrast?',{'reply':'Contrast affects 100% of the text, but guarantees need review.','fields':{}}).json
         self.assertIn('100%',data['history'][-1]['text'])
+    def test_generated_identifiers_and_website_not_supplied_by_customer_are_removed(self):
+        data=self.chat('My email is alex@example.com. I need a bakery website.',{'reply':'Choose Starter Website or App Build [static-site].','sku':'static-site','action':'order','fields':{'target_url':'https://example.com'}}).json
+        self.assertNotIn('[static-site]',data['history'][-1]['text']);self.assertNotIn('target_url',data['fields'])
+    def test_paypal_summary_carries_requirements_instead_of_contact_details(self):
+        summary=tara.payment_summary('Choose Starter Website or App Build. My name is Alex Demo. My email is alex@example.com. Five pages: Home, Menu, Catering, About and Contact. Add a catering form, opening hours and large readable text.')
+        for term in ['five pages','catering form','opening hours','readable text']:self.assertIn(term,summary)
+        self.assertNotIn('Alex',summary);self.assertNotIn('@',summary)
     def test_cookieless_session_gets_do_not_allocate_or_evict_existing_state(self):
         self.chat('A bakery website.');before=set(tara._states)
         for _ in range(1005):site.app.test_client().get('/api/tara/session')

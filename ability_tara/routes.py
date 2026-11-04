@@ -349,6 +349,7 @@ def _apply(state, plan):
     if not isinstance(plan, dict):
         plan = {}
     reply = str(plan.get('reply') or FALLBACK)[:800].strip()
+    reply=re.sub(r'\[(?:'+ '|'.join(re.escape(i['sku']) for i in CATALOGUE)+r')\]','',reply).replace('  ',' ').strip()
     sku = str(plan.get('sku') or '')
     if not sku:
         named=[i for i in CATALOGUE if i['name'].lower() in reply.lower()]
@@ -397,6 +398,12 @@ def _apply(state, plan):
     if supplied and explicit_contact:
         state['fields']['email']=supplied.group(1)[:FIELD_LIMITS['email']]
     if re.fullmatch(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}',state['fields'].get('target_url',''),re.I):
+        state['fields'].pop('target_url',None)
+    supplied_words='\n'.join(state.get('customer_words',[]))
+    without_email=re.sub(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}','',supplied_words,flags=re.I)
+    supplied_urls=re.findall(r'(?<![@\w])(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?',without_email,re.I)
+    target=state['fields'].get('target_url','').lower().rstrip('/')
+    if target and not any(target.removeprefix('https://').removeprefix('http://')==u.lower().rstrip('/').removeprefix('https://').removeprefix('http://') for u in supplied_urls):
         state['fields'].pop('target_url',None)
     # A model summary can never replace the customer's actual requirements.
     words=state.get('customer_words',[])
@@ -808,7 +815,12 @@ def paypal(method, path, body=None, request_id=None):
 def payment_summary(text):
     text=re.sub(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}','',str(text),flags=re.I)
     text=re.sub(r'https?://\S+|\b(?:\+?\d[\d ()-]{8,}\d)\b','',text)
-    parts=[p.strip() for p in text.split('\n') if re.search(r'pages?|website|document|PDF|forms?|build|app|scan',p,re.I) and not re.match(r'^(?:choose|my name|use synthetic|email)',p,re.I)]
+    count=re.search(r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:web\s+)?pages?\b',text,re.I)
+    requested=([count.group(0)] if count else [])+re.findall(r'\b(?:bakery|catering (?:request )?form|opening hours|(?:large )?readable text|keyboard(?:-friendly)? navigation|calendar|reminders|Hindi|English|scanned (?:PDF|files?|documents?)|tables?|offline)\b',text,re.I)
+    if requested:
+        return ('Requested: '+'; '.join(dict.fromkeys(t.lower() for t in requested)))[:90]
+    text=re.sub(r'\bmy\s+(?:name|email|organization)\s+(?:is\s+)?[^.!\n]{0,150}[.!\n]?','',text,flags=re.I)
+    parts=[p.strip() for p in re.split(r'(?<=[.!?])\s+|\n+',text) if re.search(r'pages?|website|document|PDF|forms?|build|app|scan',p,re.I) and not re.match(r'^(?:choose|my name|use synthetic|email)',p,re.I)]
     if parts:text=max(parts,key=len)
     return ' '.join(text.split())[:90]
 
