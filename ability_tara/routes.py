@@ -412,7 +412,7 @@ def _apply(state, plan):
         reply = FALLBACK
     question = next((m['text'] for m in reversed(state['history']) if m['role']=='user'), '')
     if ((not item or item['sku'].startswith('doc-'))
-        and re.search(r'\b(?:documents?|PDF|Word|menus?)\b',question,re.I)
+        and re.search(r'\b(?:documents?|PDF|Word|scanned|tables?)\b',question,re.I)
         and re.search(r'\b(?:tables?|scanned|menus?|Hindi)\b',question,re.I)
         and not re.search(r'\b(?:choose|select|order|buy|prepare|want|would like)\b.*\bDocument (?:Starter|Standard|Pro)\b',question,re.I)):
         reply='I can help with document remediation. To confirm the right package, how many standard pages and complex or scanned pages do you have? Please also confirm the languages; the team can review any uncertain scope.'

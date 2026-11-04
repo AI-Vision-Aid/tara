@@ -96,6 +96,10 @@ class PlanConstraints(TestCase):
         self.assertFalse(schema['additionalProperties']);self.assertEqual(schema['properties']['sources']['maxItems'],6)
 
 class DocumentScope(ReviewRegressions):
+    def test_named_website_pages_without_package_do_not_trigger_document_scope(self):
+        data=self.chat('My name is Alex Demo. Organization Demo Bakery. Five pages: Home, Menu, Catering, About and Contact.',{'reply':'Would you like a bakery website?','sku':'','action':'browse','fields':{}}).json
+        self.assertNotIn('document remediation',data['history'][-1]['text'])
+        self.assertIn('bakery website',data['history'][-1]['text'])
     def test_website_menu_page_is_not_a_document_remediation_request(self):
         data=self.chat('Choose Starter Website or App Build. Five pages: Home, Menu, Catering, About and Contact.',{'reply':'Please review your website request.','sku':'static-site','action':'order','fields':{}}).json
         self.assertNotIn('document remediation',data['history'][-1]['text'])
@@ -103,4 +107,3 @@ class DocumentScope(ReviewRegressions):
     def test_unconfirmed_scanned_document_scope_is_not_calculated_as_a_known_page_total(self):
         data=self.chat('I have 40 scanned Hindi menus; page count unknown.',{'reply':'Your 40 menus fit Standard at 80 pages.','sku':'doc-standard','action':'browse','fields':{}}).json
         self.assertNotIn('80 pages',data['history'][-1]['text']);self.assertIn('confirm',data['history'][-1]['text'])
-
