@@ -70,10 +70,10 @@ Create/capture use idempotency IDs. Pending or mismatched captures are rejected.
 
 ## AI, accessibility and limits
 
-Google Gemini provides structured conversation; Zephyr provides female voice
+Google Gemini provides structured conversation; Aoede provides female voice
 with a requested neutral/slightly American delivery. Browser speech recognition
 is used where available, with short-recording Gemini transcription as fallback.
-Replies stream through Gemini 3.8 Flash TTS as 24 kHz PCM, with Zephyr and separate speech-style metadata. Stop, close, hiding the page and a new turn cancel queued speech. The cached welcome and complete-WAV fallback remain available. Tara uses only catalogue and public-page context, with a human-request fallback.
+Replies stream through Gemini 3.8 Flash TTS as 24 kHz PCM, with Aoede and separate speech-style metadata. Stop, close, hiding the page and a new turn cancel queued speech. The cached welcome and complete-WAV fallback remain available. Tara uses only catalogue and public-page context, with a human-request fallback.
 Keyboard controls, visible text, editable details, stop/repeat and draft readback
 are included. Assistive-technology and physical-microphone testing are still
 required before claiming broad accessibility validation.
@@ -91,29 +91,32 @@ form handoff, price grounding, speech controls and isolated PayPal sandbox path
 are new work in November 2026. Do not claim the entire marketplace was built
 during this event. AI assistance from ChatGPT/Codex was used for design, coding,
 debugging, documentation and validation. This source package does not constitute
-a submitted hackathon entry; a real end-to-end demo video and completed sandbox
-evaluation remain submission tasks. The business platform and earlier submitted
+a submitted hackathon entry. The hosted sandbox purchase, cancellation and
+refresh/idempotency checks passed on November 2; the submission video and final
+entry review remain separate tasks. The business platform and earlier submitted
 Maya/Saarthi applications remain separate.
 
 Code is MIT licensed. Vision-Aid and Ability Bazaar names and marks identify
 their owners; no endorsement by PayPal or Google is implied. Google API output
-was used to create the included Zephyr welcome recording.
+was used to create the included Aoede welcome recording.
 
-## Opening welcome and response timing
+## Explicit two-way voice conversation
 
-On Ability Bazaar, the first **Talk to Tara** activation opens the panel and
-plays a prepared Zephyr welcome. It introduces accessibility testing, document
-remediation, website/app development and free apps without waiting for a model
-or session request. **Start voice conversation** remains the explicit microphone
-action. Stop, close and page hiding cancel speech. The same page does not repeat
-the welcome each time the conversation is reopened.
+Page visits remain silent. Select Talk to Tara or Start voice conversation to
+hear the prepared welcome and grant microphone permission. Listening starts
+after the welcome and session are ready, then resumes after each complete spoken
+reply. Type instead or Stop voice turns it off; close, page hide and navigation
+also cancel it, including late permission callbacks. Allowing the microphone is
+optional and text mode always works. Permission failures stop automatic retries.
 
-The standalone page attempts its welcome on arrival. If the browser blocks
-autoplay, select **Start voice conversation** to hear it and begin. You can
-always type instead.
+The prepared welcome, brief waiting acknowledgement, streamed replies and WAV
+fallback all use Aoede with the same clear international-English direction.
+After 1.5 seconds of a slow voice question, Tara can say once, “Thank you. Let me
+check that for you.” Fast questions and text mode remain silent. A ready reply
+immediately replaces this acknowledgement. It neither repeats forever nor calls
+another AI service. Streaming playback still cancels queued audio on Stop/close.
 
-The full exact service/app catalogue stays in every model request. Supporting
-public-page excerpts are selected locally from packaged evidence, avoiding
-runtime page rendering and repeated unrelated text. Model conversations are
-stateless (`store=False`); the server continues to maintain the reviewed draft.
-Prepared audio and the streaming speech format remain independently runnable.
+The exact server catalogue, source-grounded assistance, explicit review and
+sandbox-only approval boundaries remain unchanged. Speech prompts cannot bypass
+payment approval. No API keys, buyer passwords or private business data belong
+in this public repository.

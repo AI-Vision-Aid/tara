@@ -490,26 +490,16 @@ def voice():
     entry = next((m for m in state['history'] if m.get('id') == data.get('message_id') and m['role'] == 'assistant'), None)
     if not entry:
         return jsonify(error='Choose a Tara reply to hear.'), 400
-    welcome = Path(__file__).resolve().parents[1] / 'static/audio/tara/welcome-v371.mp3'
+    welcome = Path(__file__).resolve().parents[1] / 'static/audio/tara/welcome-v381.mp3'
     if not welcome.exists():
         welcome = welcome.with_name('welcome.wav')
     if entry['id'] == 'welcome' and welcome.exists():
         from flask import send_file
         return send_file(welcome, mimetype='audio/mpeg' if welcome.suffix=='.mp3' else 'audio/wav', max_age=0)
     def call():
-        from google.genai import types
-        result = ai_client().models.generate_content(
-            model=os.environ.get('TARA_TTS_MODEL', 'gemini-2.5-flash-preview-tts'),
-            contents='Speak in neutral English with a light American accent, at natural conversational speed. Be warm, clear, gently cheerful and professional. Read only this text:\n' + entry['text'],
-            config=types.GenerateContentConfig(response_modalities=['AUDIO'],
-                speech_config=types.SpeechConfig(voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name='Zephyr')))))
-        inline = next((p.inline_data for p in result.candidates[0].content.parts if p.inline_data), None)
-        if inline is None:
-            raise ValueError('NoSpeechReturned')
-        raw = inline.data
-        if isinstance(raw, str):
-            raw = base64.b64decode(raw)
+        # Browsers without streaming playback use the same model/voice/style;
+        # only transport changes to a complete WAV file.
+        raw = b''.join(speech_chunks(entry['text']))
         buf = io.BytesIO()
         with wave.open(buf, 'wb') as out:
             out.setnchannels(1); out.setsampwidth(2); out.setframerate(24000); out.writeframes(raw)
@@ -518,8 +508,12 @@ def voice():
     return provider(call)
 
 
-SPEECH_STYLE = ('Neutral English with a light American accent. Natural conversational '
-                'speed, warm, clear, gently cheerful and professional.')
+SPEECH_VOICE = 'Aoede'
+SPEECH_STYLE = ('Warm, clear, adult feminine voice speaking standard international English. '
+                'Use lightly American pronunciation with subtle regional inflection, '
+                'an even conversational cadence and crisp articulation. Keep a moderate '
+                'natural pace, friendly and professional, without exaggerated enthusiasm. '
+                'Read the supplied words exactly.')
 
 
 def speech_chunks(text):
@@ -533,7 +527,7 @@ def speech_chunks(text):
         'input':[{'type':'user_input','content':[{'type':'text','text':text,
                   'annotations':[{'type':'speech_metadata','style':SPEECH_STYLE}]}]}],
         'response_format':{'type':'audio','mime_type':'audio/l16','sample_rate':24000},
-        'generation_config':{'speech_config':[{'voice':'Zephyr'}]},
+        'generation_config':{'speech_config':[{'voice':SPEECH_VOICE}]},
         'stream':True, 'store':False}
     total = 0
     pending = bytearray()

@@ -1,13 +1,16 @@
 <div id="tara-app" data-mode="sandbox">
-  <audio id="tara-welcome-audio" preload="auto" src="{{ url_for('static', filename='audio/tara/welcome-v371.mp3') }}" hidden></audio>
+  <audio id="tara-welcome-audio" preload="auto" src="{{ url_for('static', filename='audio/tara/welcome-v381.mp3') }}" hidden></audio>
+  <audio id="tara-thinking-audio" preload="auto" src="{{ url_for('static', filename='audio/tara/thinking-v381.mp3') }}" hidden></audio>
   <div class="tara-heading"><div><p class="eyebrow">Ability Bazaar</p>{% if current_path == '/tara' %}<h1 id="tara-title">Talk to Tara</h1>{% else %}<h2 id="tara-title">Talk to Tara</h2>{% endif %}<p>Transaction and Request Assistant</p></div><span class="tara-mark" aria-hidden="true">t</span></div>
   <p class="tara-intro">Tell us what you need. Tara will guide you through. Explore websites, apps, accessibility services, document remediation and everything else we offer.</p>
+  <p class="tara-privacy">When you choose Talk to Tara or Start voice conversation, Tara welcomes you and then listens after browser microphone permission. Use Stop voice or Type instead at any time. Merely visiting a page starts no speech or listening.</p>
   <p class="tara-notice"><strong>PayPal sandbox demonstration.</strong> Tara-assisted payments use test money only; no work is commissioned. Use test details and a PayPal sandbox buyer account. For a real purchase, use the <a href="/services#offers">regular service ordering pages</a>.</p>
   <p id="tara-sandbox-readiness" role="status">Checking PayPal sandbox availability…</p>
   <p class="tara-privacy">Tara is AI and can make mistakes. It uses the published catalogue; the team handles questions it cannot verify. Voice and conversation are processed by Google's AI services. Do not share passwords, card details or confidential files. <a href="/privacy">Privacy details</a>.</p>
   <div class="tara-controls">
     <button type="button" id="tara-voice" class="btn btn-primary">Start voice conversation</button>
     <button type="button" id="tara-stop" class="btn btn-secondary">Stop voice</button>
+    <button type="button" id="tara-text" class="btn btn-quiet">Type instead</button>
     <button type="button" id="tara-repeat" class="btn btn-secondary">Repeat last answer</button>
     <button type="button" id="tara-reset" class="btn btn-quiet">Start over</button>
   </div>

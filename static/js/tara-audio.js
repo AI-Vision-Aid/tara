@@ -9,21 +9,31 @@
       this.welcomeAudio=audio;
       if(audio){audio.preload='auto';audio.load();}
     }
+    setThinking(audio) {
+      this.thinkingAudio=audio;
+      if(audio){audio.preload='auto';audio.load();}
+    }
     async playWelcome(onEnd) {
-      this.cancel(); const epoch=this.epoch, audio=this.welcomeAudio;
+      return this.playPrepared(this.welcomeAudio,onEnd,'welcome');
+    }
+    async playThinking() {
+      return this.playPrepared(this.thinkingAudio,null,'thinking');
+    }
+    async playPrepared(audio,onEnd,kind) {
+      this.cancel(); const epoch=this.epoch;
       if(!audio)return false;
       const active=()=>epoch===this.epoch;
       this.audio=audio;audio.currentTime=0;
-      audio.onended=()=>{if(active()){this.audio=null;this.status('Ready. You can speak or type.');if(onEnd)onEnd();}};
-      audio.onerror=()=>{if(active()){this.cancel();this.status('The welcome is available as text. Select Start voice conversation to try again.',true);}};
+      audio.onended=()=>{if(active()){this.audio=null;this.status(kind==='thinking'?'Tara is checking the published information…':'Ready. You can speak or type.');if(onEnd)onEnd();}};
+      audio.onerror=()=>{if(active()){this.cancel();this.status(kind==='thinking'?'Tara is checking the published information…':'The welcome is available as text. You can continue with voice or typing.',kind!=='thinking');}};
       try {
         // Start in the original click gesture. No session, synthesis or POST wait.
         const playback=audio.play();
         if(playback)await playback;
-        if(active()){this.status('Tara is welcoming you. Use Stop voice to interrupt.');return true;}
+        if(active()){this.status(kind==='thinking'?'Tara is checking the published information…':'Tara is welcoming you. Listening starts when the greeting finishes.');return true;}
         return false;
       } catch(error) {
-        if(active()){this.cancel();this.status('Select Start voice conversation to hear Tara, or type your message.',true);}
+        if(active()){this.cancel();this.status(kind==='thinking'?'Tara is checking the published information…':'You can continue with voice or type your message.',kind!=='thinking');}
         return false;
       }
     }

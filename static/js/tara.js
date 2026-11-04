@@ -7,15 +7,57 @@
   const dialog = document.getElementById('tara-dialog');
   const mode = app.dataset.mode;
   let state, busy = false, voiceMode = false, recognition, recorder, stream, recordTimer, meterTimer, context;
+  let voiceEpoch=0, requestEpoch=0, thinkingTimer, listenTimer, sessionReady=Promise.resolve();
   let reviewKind = 'help', reviewToken = '', lastReply = 'welcome', welcomeSpoken = false;
   const csrf = document.querySelector('meta[name="csrf-token"]').content;
   const status = (text, error=false) => { $('status').textContent=text; $('status').classList.toggle('tara-error',error); };
   const speech = new window.TaraAudio(csrf,status);
   speech.setWelcome($('welcome-audio'));
-  function greetOnOpen() {
-    if(welcomeSpoken)return;
+  speech.setThinking($('thinking-audio'));
+  function canListen(epoch=voiceEpoch) {
+    return epoch===voiceEpoch && voiceMode && !document.hidden && (!dialog || dialog.open);
+  }
+  async function microphonePermission(epoch) {
+    // Ask from the launch gesture, then release this permission-only stream.
+    // Recording/recognition begins after the greeting and session are ready.
+    if(!navigator.mediaDevices?.getUserMedia)return true;
+    try {
+      const permissionStream=await navigator.mediaDevices.getUserMedia({audio:true});
+      permissionStream.getTracks().forEach(track=>track.stop());
+      return canListen(epoch);
+    } catch(error) {
+      if(canListen(epoch)) {
+        voiceMode=false;$('voice').textContent='Start voice conversation';
+        status('Microphone access was not granted. You can type instead, or allow access and select Start voice conversation.',true);
+      }
+      return false;
+    }
+  }
+  function startConversation() {
+    stopListening();speech.cancel();voiceMode=true;const epoch=++voiceEpoch;
+    speech.prime().catch(()=>{});
+    const permission=microphonePermission(epoch);
+    const begin=async()=>{
+      if(!await permission || !canListen(epoch))return;
+      if(await sessionReady===false){if(canListen(epoch)){stopVoice();status('Tara could not connect. Please reload or use the regular forms.',true);}return;}
+      if(canListen(epoch))listen();
+    };
+    if(welcomeSpoken){begin();return;}
     welcomeSpoken=true;
-    speech.play('welcome',mode).then(started=>{if(started===false)welcomeSpoken=false;});
+    speech.play('welcome',mode,begin).then(started=>{
+      if(started===false && canListen(epoch)){welcomeSpoken=false;begin();}
+    });
+  }
+  function clearThinking() {
+    clearTimeout(thinkingTimer);thinkingTimer=null;
+  }
+  function acknowledgeWait(epoch) {
+    clearThinking();
+    if(!voiceMode)return;
+    thinkingTimer=setTimeout(()=>{
+      thinkingTimer=null;
+      if(busy && canListen(epoch))speech.playThinking();
+    },1500);
   }
   function stopTracks() {
     if(stream) stream.getTracks().forEach(t=>t.stop());
@@ -23,12 +65,13 @@
     if(context) {context.close().catch(()=>{}); context=null;}
   }
   function stopListening() {
+    clearTimeout(listenTimer);listenTimer=null;
     if(recognition) { recognition.abort(); recognition=null; }
     if(recorder && recorder.state==='recording') { recorder.onstop=null; recorder.stop(); }
     stopTracks();
   }
   function stopVoice() {
-    voiceMode=false;
+    voiceMode=false;voiceEpoch++;clearThinking();
     stopListening();
     speech.cancel();
     $('voice').textContent='Start voice conversation';
@@ -82,11 +125,16 @@
     stopListening();
     speech.cancel();
     setBusy(true);status('Tara is checking the published information…');
+    const epoch=voiceEpoch, request=++requestEpoch;acknowledgeWait(epoch);
     try {
-      const result=await api('chat',{message:text.trim(),page:location.pathname}); render(result,true);$('message').value='';status('Ready.');
-      if(voiceMode) await speak(lastReply,true);
-    } catch(e) {status(e.message,true);}
-    finally {setBusy(false);}
+      const result=await api('chat',{message:text.trim(),page:location.pathname});
+      clearThinking();speech.cancel();render(result,true);$('message').value='';status('Ready.');
+      // Playback finishes asynchronously; release busy before its final callback
+      // so the microphone can resume after the last audible reply buffer.
+      setBusy(false);
+      if(canListen(epoch))await speak(lastReply,true);
+    } catch(e) {if(request===requestEpoch){clearThinking();speech.cancel();status(e.message,true);}}
+    finally {if(request===requestEpoch){clearThinking();setBusy(false);}}
   }
   async function transcribe(blob) {
     setBusy(true);status('Listening complete. Preparing your words…');
@@ -99,21 +147,32 @@
     }catch(e){status(e.message,true);setBusy(false);}
   }
   async function listen() {
-    if(!voiceMode || busy || document.hidden || (dialog && !dialog.open)) return;
+    if(!canListen() || busy) return;
+    const epoch=voiceEpoch;
     speech.cancel();
     const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(Recognition) {
-      recognition=new Recognition();recognition.lang='en-US';recognition.interimResults=false;recognition.continuous=false;
-      recognition.onresult=e=>{const text=e.results[0][0].transcript;recognition=null;send(text);};
-      recognition.onerror=e=>{if(e.error!=='aborted')status('Microphone recognition is unavailable. Try again or type your message.',true);};
-      recognition.onend=()=>{recognition=null;$('voice').textContent='Speak again';};
+      const turn=new Recognition();recognition=turn;turn.lang='en-US';turn.interimResults=false;turn.continuous=false;
+      turn.onresult=e=>{if(recognition!==turn || !canListen(epoch))return;const text=e.results[0][0].transcript;recognition=null;send(text);};
+      turn.onerror=e=>{
+        if(recognition!==turn || !canListen(epoch) || e.error==='aborted')return;
+        if(e.error==='no-speech'){status('I did not catch that. Please speak again, or type your message.');return;}
+        stopVoice();status('Microphone recognition is unavailable. You can type instead, or select Start voice conversation to try again.',true);
+      };
+      turn.onend=()=>{
+        if(recognition!==turn)return;
+        recognition=null;$('voice').textContent='Speak again';
+        if(canListen(epoch) && !busy)listenTimer=setTimeout(()=>{if(canListen(epoch)&&!busy)listen();},500);
+      };
       try {recognition.start();status('Listening. Speak naturally; Tara will respond when you finish.');$('voice').textContent='Listening…';}
       catch(e){status('Please allow microphone access or type instead.',true);}
       return;
     }
     if(!navigator.mediaDevices || !window.MediaRecorder){status('Voice recording is unavailable in this browser. Please type instead.',true);return;}
     try {
-      stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const acquired=await navigator.mediaDevices.getUserMedia({audio:true});
+      if(!canListen(epoch)){acquired.getTracks().forEach(track=>track.stop());return;}
+      stream=acquired;
       const mime=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus'].find(m=>MediaRecorder.isTypeSupported(m));
       recorder=new MediaRecorder(stream,mime?{mimeType:mime}:{});const chunks=[];
       recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
@@ -129,14 +188,14 @@
   $('voice').addEventListener('click',()=>{
     if(recorder&&recorder.state==='recording'){recorder.stop();return;}
     if(recognition){recognition.stop();return;}
-    speech.prime().catch(()=>{});
-    voiceMode=true;if(!welcomeSpoken){welcomeSpoken=true;speak('welcome',true);}else listen();
+    startConversation();
   });
+  $('text').addEventListener('click',()=>{stopVoice();$('message').focus();});
   $('stop').addEventListener('click',stopVoice);
-  $('repeat').addEventListener('click',()=>{speech.prime().catch(()=>{});stopListening();speak(lastReply,false);});
+  $('repeat').addEventListener('click',()=>{speech.prime().catch(()=>{});stopListening();speak(lastReply,voiceMode);});
   $('chat-form').addEventListener('submit',e=>{e.preventDefault();send($('message').value);});
   document.querySelectorAll('[data-tara-prompt]').forEach(b=>b.addEventListener('click',()=>send(b.dataset.taraPrompt)));
-  $('reset').addEventListener('click',async()=>{stopVoice();welcomeSpoken=false;try{render(await api('reset',{}));status('A new conversation is ready.');greetOnOpen();}catch(e){status(e.message,true);}});
+  $('reset').addEventListener('click',async()=>{const wasVoice=voiceMode;stopVoice();welcomeSpoken=false;try{render(await api('reset',{}));status('A new conversation is ready.');if(wasVoice)startConversation();}catch(e){status(e.message,true);}});
   function review(kind) {
     const wasVoice=voiceMode;stopVoice(); reviewKind=kind;reviewToken='';$('sandbox-confirm').hidden=true;$('review-form').hidden=false;
     $('review').hidden=false;
@@ -178,13 +237,12 @@
     catch(e){status(e.message,true);$('paypal').disabled=false;}
   });
   document.querySelectorAll('[data-tara-open]').forEach(link=>link.addEventListener('click',e=>{
-    if(dialog){e.preventDefault();dialog.showModal();$('message').focus();greetOnOpen();}
+    e.preventDefault();if(dialog)dialog.showModal();$('message').focus();startConversation();
   }));
   const close=document.getElementById('tara-close');if(close)close.addEventListener('click',()=>dialog.close());
   if(dialog)dialog.addEventListener('close',stopVoice);
-  // The dedicated Tara page may speak on arrival where browser policy permits.
-  // A blocked autoplay leaves the explicit Start voice button available.
-  if(!dialog)greetOnOpen();
+  // Page visits, including /tara, are silent. Only a launch/voice button starts
+  // speech and asks for microphone consent; text remains usable throughout.
   document.addEventListener('visibilitychange',()=>{if(document.hidden)stopVoice();});
   window.addEventListener('pagehide',stopVoice);
   // Only fill explicitly allowlisted fields on the expected existing form.
@@ -198,5 +256,5 @@
       }
     }else if(Date.now()-handoff.created>=900000)sessionStorage.removeItem('tara_handoff');}
   }catch(e){/* Storage unavailable: regular forms remain usable. */}
-  fetch('/api/tara/session?mode='+mode,{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()).then(r=>render(r)).catch(()=>status('Please reload Tara or use the regular forms.',true));
+  sessionReady=fetch('/api/tara/session?mode='+mode,{credentials:'same-origin',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Session unavailable');return r.json();}).then(r=>render(r)).catch(()=>{status('Please reload Tara or use the regular forms.',true);return false;});
 })();

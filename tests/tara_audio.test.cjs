@@ -59,3 +59,11 @@ test('Closing during a pending welcome prevents late playback callbacks and micr
   assert.equal(welcome.paused,true);assert.equal(s.resumed(),0);
   assert.ok(!s.statuses.some(x=>x.includes('welcoming')));
 });
+
+test('Prepared thinking acknowledgement needs no provider request and cannot restart listening',async()=>{
+  const s=setup();let played=0;
+  const thinking={currentTime:0,load(){},play(){played++;return Promise.resolve();},pause(){this.paused=true;}};
+  s.audio.setThinking(thinking);await s.audio.playThinking();assert.equal(played,1);assert.equal(s.signal(),undefined);
+  thinking.onended();assert.equal(s.resumed(),0);
+  await s.audio.playThinking();s.audio.cancel();assert.equal(thinking.paused,true);assert.equal(thinking.onended,null);
+});
