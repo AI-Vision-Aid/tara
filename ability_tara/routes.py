@@ -246,8 +246,7 @@ Ask at most two short questions at a time.
 Understand the goal, answer questions, then collect requirements. Do not force a purchase.
 Ask for a package choice before preparing an order. If custom scope is needed, offer
 a human quote. Record the visitor's own brief, name, email, organization and site
-address when provided. Never infer or fabricate those details. Summarize requirements briefly in fields.notes, without repeating the conversation. Never assume a document count equals its page count, or assume language support: ask. The server preserves the exact customer words separately. Recommend a package by its exact sku whenever you name it. Keep a running brief
-in fields.notes. For an unknown answer say you don't know and offer the team request.
+address when provided. Never infer or fabricate those details. Do not generate notes or message fields: the server preserves all customer wording. Select only the supplied literal contact values or empty strings. Never assume a document count equals its page count, or assume language support: ask. The server preserves the exact customer words separately. Recommend a package by its exact sku whenever you name it. Keep notes and message empty; they are derived by the server. For an unknown answer say you don't know and offer the team request.
 Use action=help for unknown or unverified details; include the unresolved question
 in fields.message. Do not invent prices, timings, discounts, availability or guarantees.
 NEVER put monetary amounts in reply: the server adds exact published package pricing.
@@ -311,6 +310,35 @@ def model_knowledge(state, message):
     return facts
 
 
+def literal_fields(state,message):
+    words='\n'.join(state.get('customer_words',[])+[message])
+    result={k:list(dict.fromkeys(['',str(state.get('fields',{}).get(k) or '')])) for k in FIELD_LIMITS}
+    # Notes are the customer's exact words, assembled by the server, never generated.
+    result['notes']=[''];result['message']=['']
+    patterns={'name':r'\b(?:my name is|name\s*:)\s*([^.,;!\n]{1,120})',
+              'organization':r'\b(?:(?:my )?(?:organization|company|business)(?: name)?\s*(?:is|:)\s*)([^.,;!\n]{1,200})',
+              'email':r'(?:\bmy\s+e-?mail(?:\s+address)?(?:\s+is)?|(?:^|[.,;\n])\s*e-?mail(?:\s+address)?(?:\s+is)?)\s*[:=]?\s*([\w.+%-]+@[\w.-]+\.[a-z]{2,})'}
+    for key,pattern in patterns.items():
+        result[key]+=re.findall(pattern,words,re.I)[-3:]
+        result[key]=list(dict.fromkeys(v.strip() for v in result[key]))
+    text=re.sub(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}','',words,flags=re.I)
+    result['target_url']+=re.findall(r'(?<![@\w])(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?',text,re.I)[-3:]
+    return result
+
+
+def plan_schema(state,message):
+    from app import APPS,INTERESTS
+    values=literal_fields(state,message)
+    return {'type':'object','additionalProperties':False,'properties':{
+        'reply':{'type':'string','description':'At most three short sentences. No URLs, internal SKU identifiers or generated prices.'},
+        'sku':{'type':'string','enum':['']+[i['sku'] for i in CATALOGUE]},
+        'action':PLAN_SCHEMA['properties']['action'],
+        'interest':{'type':'string','enum':['']+[k for k,_ in INTERESTS]},
+        'sources':{'type':'array','items':{'type':'string','enum':['/services','/apps','/sponsor','/donate','/about','/support','/contact','/terms']+[i['sku'] for i in CATALOGUE]+[a['slug'] for a in APPS]},'maxItems':6},
+        'fields':{'type':'object','additionalProperties':False,'properties':{k:{'type':'string','enum':v} for k,v in values.items()},'required':list(values)}},
+        'required':['reply','sku','action','fields','interest','sources']}
+
+
 def propose(state, message):
     history=state['history'][-9:]
     if history and history[-1]['role']=='user' and history[-1]['text']==message:history=history[:-1]
@@ -321,7 +349,7 @@ def propose(state, message):
     result=ai_client().interactions.create(
         model=os.environ.get('TARA_MODEL','gemini-3.6-flash'),input=prompt,
         system_instruction=SYSTEM,store=False,
-        response_format={'type':'text','mime_type':'application/json','schema':PLAN_SCHEMA},
+        response_format={'type':'text','mime_type':'application/json','schema':plan_schema(state,message)},
         generation_config={'thinking_level':'minimal','max_output_tokens':2048})
     text=(result.output_text or '').strip()
     start,end=text.find('{'),text.rfind('}')
@@ -350,6 +378,9 @@ def _apply(state, plan):
         plan = {}
     reply = str(plan.get('reply') or FALLBACK)[:800].strip()
     reply=re.sub(r'\[(?:'+ '|'.join(re.escape(i['sku']) for i in CATALOGUE)+r')\]','',reply).replace('  ',' ').strip()
+    reply=re.sub(r'\s*\((?:sku:\s*)?(?:'+'|'.join(re.escape(i['sku']) for i in CATALOGUE)+r')\)','',reply,flags=re.I)
+    for product in CATALOGUE:
+        reply=re.sub(r'\b'+re.escape(product['sku'])+r'\b',product['name'],reply,flags=re.I)
     sku = str(plan.get('sku') or '')
     if not sku:
         named=[i for i in CATALOGUE if i['name'].lower() in reply.lower()]
@@ -380,16 +411,25 @@ def _apply(state, plan):
         action = 'help'
         reply = FALLBACK
     question = next((m['text'] for m in reversed(state['history']) if m['role']=='user'), '')
+    if (re.search(r'\b(?:documents?|PDF|Word|menus?)\b',question,re.I)
+        and re.search(r'\b(?:tables?|scanned|menus?|Hindi)\b',question,re.I)
+        and not re.search(r'\b(?:choose|select|order|buy|prepare|want|would like)\b.*\bDocument (?:Starter|Standard|Pro)\b',question,re.I)):
+        reply='I can help with document remediation. To confirm the right package, how many standard pages and complex or scanned pages do you have? Please also confirm the languages; the team can review any uncertain scope.'
     pricing_question = bool(re.search(r'\b(price|prices|pricing|cost|costs|how much|rates)\b',question,re.I))
     if item and (state.get('sku') != item['sku'] or pricing_question or action == 'order'):
         reply += (' The published price for ' + item['name'] + ' is ' + item['price_label'] + '.') if item['price_usd'] is not None else ' The team must prepare a custom quote for this work.'
     elif not item and pricing_question and action != 'help':
         reply += ' Published fixed-price options: ' + '; '.join(i['name'] + ', ' + i['price_label'] for i in CATALOGUE if i['cta']=='buy') + '. Custom work requires a team quote.'
+    previous_fields=dict(state['fields'])
     fields = plan.get('fields') or {}
+    allowed_fields=literal_fields(state,question)
     if isinstance(fields, dict):
         for k, limit in FIELD_LIMITS.items():
-            if isinstance(fields.get(k), str) and fields[k].strip():
+            if k not in ('notes','message') and isinstance(fields.get(k), str) and fields[k].strip() in allowed_fields[k] and fields[k].strip():
                 state['fields'][k] = fields[k].strip()[:limit]
+    for k in ('name','email','organization'):
+        given=[v for v in allowed_fields[k] if v and v!=previous_fields.get(k)]
+        if given:state['fields'][k]=given[-1][:FIELD_LIMITS[k]]
     # Preserve an explicitly supplied contact address even if model extraction
     # misses it; never treat a standalone email address as a website URL.
     supplied=re.search(r'\b(?:my\s+e-?mail(?:\s+address)?(?:\s+is)?|e-?mail(?:\s+address)?(?:\s+is)?(?=\s*[:=]?\s*[\w.+%-]+@))\s*[:=]?\s*([\w.+%-]+@[\w.-]+\.[a-z]{2,})',question,re.I)
@@ -403,7 +443,7 @@ def _apply(state, plan):
     without_email=re.sub(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}','',supplied_words,flags=re.I)
     supplied_urls=re.findall(r'(?<![@\w])(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?',without_email,re.I)
     target=state['fields'].get('target_url','').lower().rstrip('/')
-    if target and not any(target.removeprefix('https://').removeprefix('http://')==u.lower().rstrip('/').removeprefix('https://').removeprefix('http://') for u in supplied_urls):
+    if target and target!=str(previous_fields.get('target_url','')).lower().rstrip('/') and not any(target.removeprefix('https://').removeprefix('http://')==u.lower().rstrip('/').removeprefix('https://').removeprefix('http://') for u in supplied_urls):
         state['fields'].pop('target_url',None)
     # A model summary can never replace the customer's actual requirements.
     words=state.get('customer_words',[])

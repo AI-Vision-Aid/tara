@@ -86,3 +86,16 @@ class TrustedProxyLimits(TestCase):
                 codes.append(response.status_code)
         self.assertEqual(codes.count(429),30);self.assertEqual(codes.count(200),30)
         security._hits.clear()
+
+class PlanConstraints(TestCase):
+    def test_schema_cannot_generate_url_queries_or_repeat_customer_notes(self):
+        schema=tara.plan_schema({'fields':{},'customer_words':[]},'My name is Alex Demo. My email is alex@example.com. I have 30 Word pages.')
+        fields=schema['properties']['fields']['properties']
+        self.assertEqual(fields['target_url']['enum'],['']);self.assertEqual(fields['notes']['enum'],[''])
+        self.assertIn('Alex Demo',fields['name']['enum']);self.assertIn('alex@example.com',fields['email']['enum'])
+        self.assertFalse(schema['additionalProperties']);self.assertEqual(schema['properties']['sources']['maxItems'],6)
+
+class DocumentScope(ReviewRegressions):
+    def test_unconfirmed_scanned_document_scope_is_not_calculated_as_a_known_page_total(self):
+        data=self.chat('I have 40 scanned Hindi menus; page count unknown.',{'reply':'Your 40 menus fit Standard at 80 pages.','sku':'doc-standard','action':'browse','fields':{}}).json
+        self.assertNotIn('80 pages',data['history'][-1]['text']);self.assertIn('confirm',data['history'][-1]['text'])
