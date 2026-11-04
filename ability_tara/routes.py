@@ -20,7 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import requests
-from flask import Blueprint, Response, jsonify, render_template, request, session, redirect
+from flask import Blueprint, Response, jsonify, render_template, request, session, redirect, current_app, has_request_context
 from ability_market.catalogue import CATALOGUE, get_buyable
 from security import csrf_valid, rate_limited
 
@@ -29,12 +29,14 @@ log = logging.getLogger('tara')
 _lock = threading.RLock()
 _states = {}
 _slots = threading.BoundedSemaphore(3)
+_speech_slots = threading.BoundedSemaphore(3)
 _db = None
 _client = None
 _reference_cache = None
 GREETING = ("Welcome to Ability Bazaar! I'm Tara, your AI assistant. I can help with "
             "accessibility testing, accessible documents, building websites and apps, "
             "or exploring our free apps. What would you like help with today?")
+RECOVERY = "I couldn't complete that. Your message is available to edit. Please try again or review your draft."
 FALLBACK = ("I don't have a verified answer to that. I can help you prepare a "
             "customer-service request so the team can follow up with you.")
 FIELD_LIMITS = {'name':120, 'email':254, 'organization':200,
@@ -43,14 +45,38 @@ FIELD_LIMITS = {'name':120, 'email':254, 'organization':200,
 
 def db():
     global _db
+    if local_storage():
+        from .memory_store import store
+        return store
     if _db is None:
         from firestore_client import create_firestore_client
         _db = create_firestore_client(project=os.environ.get('GOOGLE_CLOUD_PROJECT', 'ability-bazaar-2026'))
     return _db
 
 
+def local_storage():
+    # Never allow this opt-in to weaken the integrated production service.
+    return (has_request_context() and current_app.config.get('TARA_STANDALONE')
+            and not os.environ.get('K_SERVICE')
+            and os.environ.get('TARA_STORAGE_BACKEND','memory') == 'memory')
+
+
 def reserve_call():
     """Shared daily provider-request ceiling; unavailable storage fails closed."""
+    day=datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    if has_request_context():
+        state=_state()
+        with _lock:
+            if state.get('usage_day')!=day:state.update(usage_day=day,usage_calls=0)
+            if state.get('usage_calls',0)>=60:return False
+            state['usage_calls']=state.get('usage_calls',0)+1
+    if local_storage():
+        with _lock:
+            ref=db().collection('tara_usage').document(day)
+            count=(ref.get().to_dict() or {}).get('calls',0)
+            limit=min(1500,max(1,int(os.environ.get('TARA_DAILY_CALL_LIMIT','400'))))
+            if count>=limit:return False
+            ref.set({'calls':count+1});return True
     from google.cloud import firestore
     ref = db().collection('tara_usage').document(datetime.now(timezone.utc).strftime('%Y-%m-%d'))
     @firestore.transactional
@@ -67,6 +93,8 @@ def reserve_call():
 @bp.before_request
 def guard():
     if request.method != 'POST':
+        if request.endpoint=='tara.get_session' and rate_limited('tara-session',60,60,request.remote_addr or 'unknown'):
+            return jsonify(error='Please wait a minute before reloading Tara.'),429
         return None
     if not request.content_length or request.content_length > 3 * 1024 * 1024:
         return jsonify(error='Keep your request below 3 MB.'), 413
@@ -77,29 +105,32 @@ def guard():
     origin = request.headers.get('Origin')
     if origin and origin.rstrip('/') != request.host_url.rstrip('/'):
         return jsonify(error='Please use Tara on this website.'), 403
-    if rate_limited('tara', 30, 60):
+    if rate_limited('tara', 30, 60, request.remote_addr or 'unknown'):
         return jsonify(error='Please wait a minute before continuing.'), 429
 
 
-def _state(mode='live'):
+def _state(mode='live', create=True):
     # Tara-assisted purchases are test-only until the owner enables real commerce.
     # The existing marketplace checkout is separate and remains unchanged.
     mode = 'sandbox'
     key = 'tara_sid_' + mode
     sid = session.get(key)
+    if not isinstance(sid,str) or not re.fullmatch(r'[A-Za-z0-9_-]{20,100}',sid):sid=None
     with _lock:
         now = time.time()
         for stale in [k for k,v in _states.items() if now-v['touched'] > 7200]:
             _states.pop(stale, None)
         if sid not in _states:
+            if not create:
+                return {'sid':sid,'mode':mode,'history':[{'role':'assistant','text':GREETING,'id':'welcome'}], 'fields':{},'sku':'','action':'none','customer_words':[],'drafts':{}}
             if len(_states) >= 1000:
                 _states.pop(min(_states, key=lambda k:_states[k]['touched']))
-            sid = secrets.token_urlsafe(24)
+            sid = sid or secrets.token_urlsafe(24)
             session[key] = sid
             _states[sid] = {'sid':sid, 'mode':mode, 'history':[
                 {'role':'assistant','text':GREETING,'id':'welcome'}], 'fields':{},
                 'sku':'', 'action':'none', 'touched':now, 'review':None,
-                'turn_lock':threading.Lock()}
+                'turn_lock':threading.Lock(),'customer_words':[],'drafts':{}}
         state = _states[sid]
         state['touched'] = now
         return state
@@ -215,7 +246,7 @@ Ask at most two short questions at a time.
 Understand the goal, answer questions, then collect requirements. Do not force a purchase.
 Ask for a package choice before preparing an order. If custom scope is needed, offer
 a human quote. Record the visitor's own brief, name, email, organization and site
-address when provided. Never infer or fabricate those details. Keep a running brief
+address when provided. Never infer or fabricate those details. Summarize requirements briefly in fields.notes, without repeating the conversation. Never assume a document count equals its page count, or assume language support: ask. The server preserves the exact customer words separately. Recommend a package by its exact sku whenever you name it. Keep a running brief
 in fields.notes. For an unknown answer say you don't know and offer the team request.
 Use action=help for unknown or unverified details; include the unresolved question
 in fields.message. Do not invent prices, timings, discounts, availability or guarantees.
@@ -266,37 +297,40 @@ def quick_plan(message):
     return None
 
 
+def model_knowledge(state, message):
+    facts=knowledge(message)
+    terms=set(re.findall(r'[a-z0-9]+',message.lower()))
+    docs=bool(terms & {'pdf','word','powerpoint','documents','document','menus','remediation','scanned'})
+    builds=bool(terms & {'website','websites','bakery','build','catering','pages','app','prototype'}) and not docs
+    scans=bool(terms & {'audit','testing','scan','wcag','accessibility'}) and not docs and not builds
+    selected=[i for i in CATALOGUE if (docs and i['sku'].startswith('doc-')) or (builds and i['sku'] in ('static-site','dynamic-site','custom')) or (scans and i['sku'] in ('able-screening','advanced-scan','custom')) or i['sku']==state.get('sku')]
+    facts['service_index']=[{k:i[k] for k in ('sku','name','price_label','cta')} for i in CATALOGUE]
+    facts['services']=selected[:5]
+    facts['apps']=[{k:v for k,v in a.items() if k in ('slug','name','description','summary','status')} for a in facts.get('apps',[])]
+    facts['public_pages']=[{'path':p['path'],'text':p['text'][:1200]} for p in facts.get('public_pages',[])[:1]]
+    return facts
+
+
 def propose(state, message):
-    query = ' '.join([str(state.get('sku') or ''), message] +
-                     [m['text'] for m in state['history'][-4:] if m['role']=='user'])
-    prompt = json.dumps({'VERIFIED_CATALOGUE':knowledge(query),
-                         'draft':{'sku':state['sku'],'fields':state['fields']},
-                         'conversation':state['history'][-18:], 'customer':message,
-                         'current_form_guidance':state.get('form_guidance','')}, ensure_ascii=False)
-    for attempt in range(2):
-        if attempt and not reserve_call():
-            break
-        result = ai_client().interactions.create(
-            model=os.environ.get('TARA_MODEL', 'gemini-3.6-flash'), input=prompt,
-            system_instruction=SYSTEM, store=False,
-            response_format={'type':'text','mime_type':'application/json','schema':PLAN_SCHEMA},
-            generation_config={'thinking_level':'low','max_output_tokens':4096})
-        text = (result.output_text or '').strip()
-        fence = re.search(r'```(?:json)?\s*(.*?)```', text, re.S)
-        if fence:
-            text = fence[1].strip()
-        start, end = text.find('{'), text.rfind('}')
-        if start >= 0 and end > start:
-            text = text[start:end+1]
+    history=state['history'][-9:]
+    if history and history[-1]['role']=='user' and history[-1]['text']==message:history=history[:-1]
+    prompt=json.dumps({'VERIFIED_CATALOGUE':model_knowledge(state,message),
+                      'draft':{'sku':state['sku'],'fields':state['fields']},
+                      'conversation':history,'customer':message,
+                      'current_form_guidance':state.get('form_guidance','')},ensure_ascii=False)
+    result=ai_client().interactions.create(
+        model=os.environ.get('TARA_MODEL','gemini-3.6-flash'),input=prompt,
+        system_instruction=SYSTEM,store=False,
+        response_format={'type':'text','mime_type':'application/json','schema':PLAN_SCHEMA},
+        generation_config={'thinking_level':'minimal','max_output_tokens':2048})
+    text=(result.output_text or '').strip()
+    start,end=text.find('{'),text.rfind('}')
+    if start>=0 and end>start:
         try:
-            plan = json.loads(text)
-            if isinstance(plan, dict) and isinstance(plan.get('reply'), str) and plan['reply'].strip():
-                return plan
-        except ValueError:
-            pass
-        if attempt == 0:
-            prompt += '\nReturn one complete JSON object only. Keep the reply and draft fields short.'
-    return {'reply':FALLBACK,'action':'help','fields':{'message':message}}
+            plan=json.loads(text[start:end+1])
+            if isinstance(plan,dict) and isinstance(plan.get('reply'),str) and plan['reply'].strip():return plan
+        except ValueError:pass
+    raise ValueError('IncompletePlan')
 
 
 def ai_client():
@@ -316,15 +350,31 @@ def _apply(state, plan):
         plan = {}
     reply = str(plan.get('reply') or FALLBACK)[:800].strip()
     sku = str(plan.get('sku') or '')
+    if not sku:
+        named=[i for i in CATALOGUE if i['name'].lower() in reply.lower()]
+        if len(named)==1:sku=named[0]['sku']
     item = next((i for i in CATALOGUE if i['sku'] == sku), None)
+    old_sku=state.get('request_sku') or state.get('sku','')
+    if item and old_sku and old_sku!=item['sku']:
+        drafts=state.setdefault('drafts',{})
+        drafts[old_sku]={'fields':dict(state['fields']),'customer_words':state.get('customer_words',[])[:-1]}
+        contact={k:v for k,v in state['fields'].items() if k in ('name','email','organization')}
+        prior=drafts.pop(item['sku'],{})
+        state['fields']=contact | prior.get('fields',{})
+        current=state.get('customer_words',[])[-1:]
+        state['customer_words']=prior.get('customer_words',[])+current
+        state['draft_notice']='A separate request is open. Your earlier draft is available under Saved requests.'
+    if item:state['request_sku']=item['sku']
     action = plan.get('action') if plan.get('action') in ('none','order','help','browse') else 'help'
     # A generated monetary claim is never forwarded; prices are rendered below
     # directly from the catalogue. This catches common currency formats.
-    if re.search(r'[$£€%]|\b(?:USD|dollars?|pounds?|euros?)\b|https?://', reply, re.I):
+    if re.search(r'(?:[$£€]\s*\d|\b\d[\d,.]*\s*(?:USD|dollars?|pounds?|euros?)\b|\bUSD\s*\d|https?://)', reply, re.I):
         reply = ('I can explain the published options and help prepare your request. '
                  'Please review the verified service details below.') if item else FALLBACK
     if re.search(r"\b(?:I've|I have|we have|I've already)\s+(?:sent|submitted|booked|charged|paid|placed)|\b(?:payment|order|request)\s+(?:has been|is|was)\s+(?:confirmed|paid|submitted|sent|placed)", reply, re.I):
         reply = 'I can prepare the details for you to review. Nothing has been submitted or paid through this conversation.'
+    if re.search(r"\b(?:I have|I've|I|we)\s+(?:updated|saved|added|recorded|captured)\b",reply,re.I):
+        reply='Your words are kept in the editable draft. Please review them before continuing.'
     if not item and action == 'order':
         action = 'help'
         reply = FALLBACK
@@ -348,11 +398,14 @@ def _apply(state, plan):
         state['fields']['email']=supplied.group(1)[:FIELD_LIMITS['email']]
     if re.fullmatch(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}',state['fields'].get('target_url',''),re.I):
         state['fields'].pop('target_url',None)
-    if action=='order' and not state['fields'].get('notes'):
-        # Keep the visitor's actual words reviewable if extraction omitted a
-        # brief. This is a transcript fallback, never an invented requirement.
-        state['fields']['notes']='\n'.join(m['text'] for m in state['history']
-                                           if m['role']=='user')[-FIELD_LIMITS['notes']:]
+    # A model summary can never replace the customer's actual requirements.
+    words=state.get('customer_words',[])
+    exact='\n\n'.join(words)
+    if exact:
+        state['fields']['notes']=exact[-FIELD_LIMITS['notes']:]
+        if action=='help':
+            unresolved=str(fields.get('message') or question).strip()
+            state['fields']['message']=('Question for the team: '+unresolved+'\n\nCustomer words:\n'+exact)[-FIELD_LIMITS['message']:]
     from app import INTERESTS
     interest = plan.get('interest')
     if interest in dict(INTERESTS):
@@ -384,7 +437,10 @@ def _view(state):
     item = next((i for i in CATALOGUE if i['sku'] == state['sku']), None)
     return {'history':state['history'], 'fields':state['fields'], 'sku':state['sku'],
             'action':state['action'], 'mode':state['mode'],
-            'item':item, 'resources':state.get('resources',[]), 'sandbox_ready':sandbox_ready()}
+            'item':item, 'resources':state.get('resources',[]), 'sandbox_ready':sandbox_ready(),
+            'customer_words':state.get('customer_words',[]),'words_truncated':state.get('words_truncated',False),
+            'recovery':state.get('recovery',False),'draft_notice':state.get('draft_notice',''),
+            'saved_requests':[{'sku':k,'name':next((i['name'] for i in CATALOGUE if i['sku']==k),k)} for k in state.get('drafts',{})]}
 
 
 def provider(fn):
@@ -409,9 +465,23 @@ def page():
                            tara_demo=request.args.get('demo') == '1')
 
 
+def configuration():
+    storage=local_storage() or bool(os.environ.get('GOOGLE_CLOUD_PROJECT'))
+    result={'app':'tara-sandbox','conversation_configured':bool(os.environ.get('GEMINI_API_KEY')),
+            'sandbox_configured':sandbox_ready(),'storage_configured':storage,
+            'storage_backend':'memory (local only)' if local_storage() else 'Firestore'}
+    result['ready']=all(result[k] for k in ('conversation_configured','sandbox_configured','storage_configured'))
+    result['status']='ok' if result['ready'] else 'needs_configuration'
+    return result
+
+
+@bp.get('/api/tara/health')
+def tara_health():return jsonify(configuration())
+
+
 @bp.get('/api/tara/session')
 def get_session():
-    response = jsonify(_view(_state(request.args.get('mode'))))
+    response = jsonify(_view(_state(request.args.get('mode'),create=False)))
     response.headers['Cache-Control'] = 'no-store'
     return response
 
@@ -441,19 +511,47 @@ def chat():
         state['form_guidance'] = ('The visitor is on the real contact form. Close Tara, review name, email, interest and question. '
             'The visitor activates Send message themselves. Some custom-quote forms use Request my quote and require organization, '
             'organization type, need and timeline. Never claim receipt without the site confirmation.')
-    prepared=quick_plan(data['message'].strip())
-    def call():
-        # Serialize each conversation so overlapping messages cannot reorder a draft.
-        if not state['turn_lock'].acquire(blocking=False):
-            return jsonify(error='Please wait for Tara to finish the previous reply.'), 409
-        try:
-            plan = prepared if prepared is not None else propose(state, data['message'].strip())
-            state['history'].append({'role':'user','text':data['message'].strip()})
-            _apply(state, plan)
+    message=data['message'].strip()
+    if not state['turn_lock'].acquire(blocking=False):
+        return jsonify(error='Please wait for Tara to finish the previous reply.'),409
+    try:
+        state['history'].append({'role':'user','text':message})
+        words=state.setdefault('customer_words',[]);words.append(message)
+        while sum(len(t) for t in words)>24000:
+            words.pop(0);state['words_truncated']=True
+        state.update(recovery=False,draft_notice='')
+        prepared=quick_plan(message)
+        def call():
+            try:
+                plan=prepared if prepared is not None else propose(state,message)
+                _apply(state,plan)
+            except Exception as exc:
+                log.warning('Tara plan unavailable (%s); customer words preserved',type(exc).__name__)
+                state['fields']['notes']='\n\n'.join(state.get('customer_words',[]))[-FIELD_LIMITS['notes']:]
+                state['recovery']=True;state['action']='order' if get_buyable(state.get('sku','')) else 'help'
+                state['fields']['message']='Question for the team: '+message+'\n\nCustomer words:\n'+state['fields']['notes']
+                state['history'].append({'role':'assistant','text':RECOVERY,'id':'recovery'})
+            state['history']=state['history'][-24:]
             return jsonify(_view(state))
-        finally:
-            state['turn_lock'].release()
-    return call() if prepared is not None else provider(call)
+        result=call() if prepared is not None else provider(call)
+        if isinstance(result,tuple):state['fields']['notes']='\n\n'.join(state.get('customer_words',[]))[-FIELD_LIMITS['notes']:]
+        return result
+    finally:state['turn_lock'].release()
+
+
+@bp.post('/api/tara/draft')
+def select_draft():
+    state=_state();sku=str((request.get_json(silent=True) or {}).get('sku',''))
+    if not state['turn_lock'].acquire(blocking=False):return jsonify(error='Please wait for the current reply.'),409
+    try:
+        drafts=state.setdefault('drafts',{})
+        if sku not in drafts:return jsonify(error='That saved request is unavailable.'),404
+        restored=drafts.pop(sku);old=state.get('sku','')
+        if old:drafts[old]={'fields':dict(state['fields']),'customer_words':list(state.get('customer_words',[]))}
+        state.update(sku=sku,request_sku=sku,fields=restored['fields'],customer_words=restored['customer_words'],review=None,recovery=False,draft_notice='Saved request restored. Please review before continuing.')
+        return jsonify(_view(state))
+    finally:state['turn_lock'].release()
+
 
 
 @bp.post('/api/tara/transcribe')
@@ -570,7 +668,7 @@ def voice_stream():
                   and m['role'] == 'assistant'), None)
     if not entry:
         return jsonify(error='Choose a Tara reply to hear.'), 400
-    if not _slots.acquire(blocking=False):
+    if not _speech_slots.acquire(blocking=False):
         return jsonify(error='Tara is busy. Please try again shortly.'), 429
     upstream = None
     released = False
@@ -584,7 +682,7 @@ def voice_stream():
                     if close:
                         close()
             finally:
-                _slots.release()
+                _speech_slots.release()
     try:
         if not reserve_call():
             cleanup()
@@ -637,7 +735,8 @@ def review_summary():
     if not isinstance(fields, dict):
         return jsonify(error='Please review your details.'), 400
     item = get_buyable(str(data.get('sku') or '')) if data.get('kind') == 'order' else None
-    text = ('Your draft is for ' + item['name'] + ', published price ' + item['price_label'] + '. ') if item else 'Your draft is a request for the Ability Bazaar team. '
+    text = 'Voice is paused while you review. Your approval is still required. '
+    text += ('Your draft is for ' + item['name'] + ', published price ' + item['price_label'] + '. ') if item else 'Your draft is a request for the Ability Bazaar team. '
     for k,label in [('name','Name'),('email','Email'),('organization','Organization'),('target_url','Website'),('notes','Requirements')]:
         value = str(fields.get(k) or '').strip()[:FIELD_LIMITS[k]]
         if value:
@@ -706,6 +805,14 @@ def paypal(method, path, body=None, request_id=None):
     return result.json()
 
 
+def payment_summary(text):
+    text=re.sub(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}','',str(text),flags=re.I)
+    text=re.sub(r'https?://\S+|\b(?:\+?\d[\d ()-]{8,}\d)\b','',text)
+    parts=[p.strip() for p in text.split('\n') if re.search(r'pages?|website|document|PDF|forms?|build|app|scan',p,re.I) and not re.match(r'^(?:choose|my name|use synthetic|email)',p,re.I)]
+    if parts:text=max(parts,key=len)
+    return ' '.join(text.split())[:90]
+
+
 @bp.post('/api/tara/checkout')
 def checkout():
     data = request.get_json(silent=True) or {}
@@ -720,8 +827,9 @@ def checkout():
     # Price always comes from the current catalogue, never a model or browser.
     amount = f"{Decimal(str(item['price_usd'])):.2f}"
     return_base = request.host_url.rstrip('/')
+    summary=('SANDBOX - '+item['name']+' - '+payment_summary(review['fields']['notes']))[:127]
     body = {'intent':'CAPTURE','purchase_units':[{'reference_id':ref,'custom_id':ref,
-        'description':('SANDBOX DEMO ONLY - ' + item['name'])[:127],
+        'description':summary,
         'amount':{'currency_code':'USD','value':amount}}],
         'payment_source':{'paypal':{'experience_context':{'brand_name':'Ability Bazaar - Tara demo',
             'shipping_preference':'NO_SHIPPING','user_action':'PAY_NOW',
@@ -741,7 +849,7 @@ def checkout():
             'owner':hashlib.sha256(state['sid'].encode()).hexdigest(),
             'paypal_order_id':result['id'],'amount':amount,'sku':item['sku'],
             'status':'created','sandbox':True,'created_at':datetime.now(timezone.utc),
-            'brief':review['fields']['notes'][:4000]}, merge=True)
+            'brief':summary,'currency':'USD'}, merge=True)
         return jsonify(approval_url=approval, reference=ref, sandbox=True)
     except Exception as exc:
         log.warning('Tara sandbox checkout unavailable (%s)', type(exc).__name__)
@@ -773,34 +881,41 @@ def _owned_order():
     ref = request.args.get('ref','')
     if not re.fullmatch(r'TARA-[A-F0-9]{24}', ref):
         return None, None, None
-    state = _state('sandbox')
+    sid=session.get('tara_sid_sandbox')
+    if not isinstance(sid,str):return None,None,None
     doc = db().collection('tara_demo_orders').document(ref)
     order = doc.get().to_dict() or {}
-    if not secrets.compare_digest(order.get('owner',''), hashlib.sha256(state['sid'].encode()).hexdigest()):
+    if not secrets.compare_digest(order.get('owner',''), hashlib.sha256(sid.encode()).hexdigest()):
         return None, None, None
     return ref, doc, order
 
 
 @bp.get('/tara/paypal/return')
 def paypal_return():
-    ok = False
-    message = 'We could not verify that sandbox payment. Return to Tara to try again.'
+    ok=False;receipt=None
+    message='We could not verify that sandbox payment. Return to Tara to try again.'
     try:
-        ref, doc, order = _owned_order()
-        if order and request.args.get('token') == order['paypal_order_id']:
-            if order.get('status') == 'completed':
-                ok = True
+        ref,doc,order=_owned_order()
+        if order and request.args.get('token')==order['paypal_order_id']:
+            if order.get('status')=='completed':ok=True
             else:
-                result = paypal('POST', '/v2/checkout/orders/'+order['paypal_order_id']+'/capture',{},ref+'-capture')
-                ok = verified_capture(result, order, ref)
+                try:result=paypal('POST','/v2/checkout/orders/'+order['paypal_order_id']+'/capture',{},ref+'-capture')
+                except Exception:
+                    # Covers a prior successful capture whose database update failed.
+                    result=paypal('GET','/v2/checkout/orders/'+order['paypal_order_id'])
+                ok=verified_capture(result,order,ref)
                 if ok:
-                    doc.update({'status':'completed','completed_at':datetime.now(timezone.utc)})
+                    cap=result['purchase_units'][0]['payments']['captures'][0]
+                    update={'status':'completed','completed_at':datetime.now(timezone.utc),
+                            'capture_id':cap.get('id',''),'captured_at':cap.get('create_time') or datetime.now(timezone.utc).isoformat(), 'currency':'USD'}
+                    doc.update(update);order.update(update)
             if ok:
-                message = 'PayPal confirmed your sandbox payment. This was a demonstration: no real money was charged and no service order was sent for fulfillment.'
-    except Exception as exc:
-        log.warning('Tara sandbox verification unavailable (%s)', type(exc).__name__)
-    return render_template('tara_payment.html',page_title='Tara sandbox payment',page_id='',
-                           noindex=True,disable_analytics=True,paid=ok,message=message), (200 if ok else 409)
+                message='PayPal confirmed your sandbox payment. No real money was charged and no work was commissioned.'
+                receipt={'reference':ref,'order_id':order['paypal_order_id'],'capture_id':order.get('capture_id','Unavailable for this earlier test'),
+                         'amount':order['amount'],'currency':order.get('currency','USD'),'summary':order.get('brief',''),
+                         'captured_at':order.get('captured_at') or str(order.get('completed_at','Earlier test'))}
+    except Exception as exc:log.warning('Tara sandbox verification unavailable (%s)',type(exc).__name__)
+    return render_template('tara_payment.html',page_title='Tara sandbox payment',page_id='',noindex=True,disable_analytics=True,paid=ok,message=message,receipt=receipt),(200 if ok else 409)
 
 
 @bp.get('/tara/paypal/cancel')

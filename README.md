@@ -28,14 +28,23 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Set the environment variables listed in `.env.example` in your shell or secret
-manager; this app does not automatically load a .env file. Do not commit keys.
-Use your own funded paid Gemini API key. Use a separate Google Cloud project
-with a Firestore Native database; enable the Firestore API and run
-`gcloud auth application-default login` locally. Set GOOGLE_CLOUD_PROJECT to
-that project. The runtime needs permission to read/write the `tara_usage` and
-`tara_demo_orders` collections. A local Firestore emulator is also supported
-through FIRESTORE_EMULATOR_HOST with GOOGLE_CLOUD_PROJECT set to a test project.
+Set variables from `.env.example` in your shell (it is not automatically loaded).
+Local runs default to a bounded **memory store**, so no Firestore account or
+Google Cloud sign-in is needed. Use your own paid Gemini API key. For example:
+
+```powershell
+$env:GEMINI_API_KEY="your-own-key"
+$env:SECRET_KEY="your-own-random-secret"
+$env:TARA_STORAGE_BACKEND="memory"
+python app.py
+```
+
+`/api/health` identifies missing conversation, sandbox or storage configuration;
+it does not claim readiness just because the process is running. Memory data is
+ephemeral and disappears on restart. For persistent sandbox orders, set
+`TARA_STORAGE_BACKEND=firestore`, `GOOGLE_CLOUD_PROJECT`, configure Firestore Native
+and ADC/emulator credentials. Cloud Run always uses Firestore; it refuses the
+local-memory shortcut. Keep SECRET_KEY stable in hosted deployments.
 
 For PayPal: sign in at https://developer.paypal.com/dashboard/applications/sandbox,
 create/select a sandbox REST app and put its client ID and secret in the two
@@ -71,7 +80,7 @@ Create/capture use idempotency IDs. Pending or mismatched captures are rejected.
 ## AI, accessibility and limits
 
 Google Gemini provides structured conversation; Aoede provides female voice
-with a requested neutral/slightly American delivery. Browser speech recognition
+with a clear international-English delivery direction. Browser speech recognition
 is used where available, with short-recording Gemini transcription as fallback.
 Replies stream through Gemini 3.8 Flash TTS as 24 kHz PCM, with Aoede and separate speech-style metadata. Stop, close, hiding the page and a new turn cancel queued speech. The cached welcome and complete-WAV fallback remain available. Tara uses only catalogue and public-page context, with a human-request fallback.
 Keyboard controls, visible text, editable details, stop/repeat and draft readback
@@ -120,3 +129,32 @@ The exact server catalogue, source-grounded assistance, explicit review and
 sandbox-only approval boundaries remain unchanged. Speech prompts cannot bypass
 payment approval. No API keys, buyer passwords or private business data belong
 in this public repository.
+
+## Independent review improvements (3.9.0)
+
+Customer turns are preserved before calling AI. A timeout returns an honest
+recovery reply with editable words retained, plus a prepared spoken recovery in
+voice mode. The review contains the actual customer wording, not only an AI
+summary. Separate package drafts can be resumed without merging their requirements.
+Compact catalogue context and minimal thinking reduce unnecessary generation work;
+real latency results are reported separately, never promised as a fixed number.
+
+The reviewed, contact-stripped summary is carried into the PayPal sandbox order
+description. The verified receipt shows amount/currency, Tara reference, PayPal
+order/capture IDs and captured time. The signed cookie retains ownership after
+a server restart. A completed PayPal order can be reconciled if capture previously
+succeeded but the record update failed. Refresh never intentionally recaptures.
+
+Tara limits use the trusted proxy identity, plus a 60-provider-call session ceiling
+and the shared daily ceiling. New cookieless session GETs do not allocate/evict
+conversations. Speech has its own concurrency pool. Review pauses microphone input
+and announces that approval is still needed. All orders remain sandbox-only.
+
+Run offline checks explicitly:
+`python -m pytest -q`
+`node --test tests/tara_audio.test.cjs tests/tara_opening.test.cjs`
+
+Catalogue navigation may open the real Ability Bazaar site; the local `/buy/`
+path shows a sandbox notice and never redirects into live checkout. This source
+has no judge buyer password or API key. Claude independently reviewed the earlier
+draft; the team evaluated its findings and implemented accepted changes with Codex.

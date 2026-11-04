@@ -4,6 +4,16 @@
 <p class="eyebrow">Tara · PayPal sandbox demonstration</p>
 <h1>{{ 'Sandbox payment verified' if paid else 'Sandbox checkout' }}</h1>
 <p class="lede" role="status">{{ message }}</p>
+{% if paid and receipt %}
+<section aria-label="Verified sandbox receipt" class="tara-review"><h2>Your test receipt</h2>
+<p><strong>{{ receipt.amount }} {{ receipt.currency }} — SANDBOX, no real money</strong></p>
+<p>{{ receipt.summary }}</p><dl>
+<dt>Tara reference</dt><dd>{{ receipt.reference }}</dd>
+<dt>PayPal order</dt><dd>{{ receipt.order_id }}</dd>
+<dt>PayPal capture</dt><dd>{{ receipt.capture_id }}</dd>
+<dt>Capture time</dt><dd>{{ receipt.captured_at }}</dd>
+</dl></section>
+{% endif %}
 <p><a class="btn btn-primary" href="/tara?demo=1">Return to Tara</a></p>
 <p>Demo transactions are kept separate from real orders, revenue, service fulfillment and customer notifications.</p>
 </div></section>

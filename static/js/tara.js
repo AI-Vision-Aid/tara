@@ -14,6 +14,7 @@
   const speech = new window.TaraAudio(csrf,status);
   speech.setWelcome($('welcome-audio'));
   speech.setThinking($('thinking-audio'));
+  speech.setRecovery($('recovery-audio'));
   function canListen(epoch=voiceEpoch) {
     return epoch===voiceEpoch && voiceMode && !document.hidden && (!dialog || dialog.open);
   }
@@ -91,6 +92,11 @@
   }
   function render(result, announce=false) {
     state=result;
+    $('own-words').textContent=(result.customer_words||[]).join('\n\n');
+    $('words-limit').hidden=!result.words_truncated;
+    $('draft-notice').textContent=result.draft_notice||'';
+    $('saved-requests').replaceChildren();
+    (result.saved_requests||[]).forEach(saved=>{const button=document.createElement('button');button.type='button';button.textContent='Resume '+saved.name;button.addEventListener('click',async()=>{stopVoice();try{render(await api('draft',{sku:saved.sku}));status('Saved request restored. Please review before continuing.');}catch(e){status(e.message,true);}});$('saved-requests').append(button);});
     if($('sandbox-readiness')) $('sandbox-readiness').textContent=result.sandbox_ready?'PayPal sandbox is connected. Use a test buyer account for checkout.':'PayPal sandbox checkout is awaiting configuration. You can explore the conversation and draft review; payment is not yet available in this demo.';
     const history=$('history'); history.replaceChildren();
     result.history.forEach(message=>{
@@ -128,12 +134,12 @@
     const epoch=voiceEpoch, request=++requestEpoch;acknowledgeWait(epoch);
     try {
       const result=await api('chat',{message:text.trim(),page:location.pathname});
-      clearThinking();speech.cancel();render(result,true);$('message').value='';status('Ready.');
+      clearThinking();speech.cancel();render(result,true);if(!result.recovery)$('message').value='';status(result.recovery?'Your words are kept in the draft. You can retry or review.':'Ready.');
       // Playback finishes asynchronously; release busy before its final callback
       // so the microphone can resume after the last audible reply buffer.
       setBusy(false);
       if(canListen(epoch))await speak(lastReply,true);
-    } catch(e) {if(request===requestEpoch){clearThinking();speech.cancel();status(e.message,true);}}
+    } catch(e) {if(request===requestEpoch){clearThinking();speech.cancel();status(e.message+' Your message remains in the text box.',true);setBusy(false);if(canListen(epoch))await speak('recovery',true);}}
     finally {if(request===requestEpoch){clearThinking();setBusy(false);}}
   }
   async function transcribe(blob) {
@@ -153,7 +159,7 @@
     const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(Recognition) {
       const turn=new Recognition();recognition=turn;turn.lang='en-US';turn.interimResults=false;turn.continuous=false;
-      turn.onresult=e=>{if(recognition!==turn || !canListen(epoch))return;const text=e.results[0][0].transcript;recognition=null;send(text);};
+      turn.onresult=e=>{if(recognition!==turn || !canListen(epoch))return;const text=e.results[0][0].transcript;$('message').value=text;recognition=null;send(text);};
       turn.onerror=e=>{
         if(recognition!==turn || !canListen(epoch) || e.error==='aborted')return;
         if(e.error==='no-speech'){status('I did not catch that. Please speak again, or type your message.');return;}
@@ -165,7 +171,7 @@
         if(canListen(epoch) && !busy)listenTimer=setTimeout(()=>{if(canListen(epoch)&&!busy)listen();},500);
       };
       try {recognition.start();status('Listening. Speak naturally; Tara will respond when you finish.');$('voice').textContent='Listening…';}
-      catch(e){status('Please allow microphone access or type instead.',true);}
+      catch(e){recognition=null;voiceMode=false;status('Please allow microphone access or type instead.',true);}
       return;
     }
     if(!navigator.mediaDevices || !window.MediaRecorder){status('Voice recording is unavailable in this browser. Please type instead.',true);return;}
@@ -201,13 +207,14 @@
     $('review').hidden=false;
     $('review-title').textContent=kind==='order'?'Review your service order':'Prepare a customer-service request';
     const item=state.item;
-    $('review-description').textContent=kind==='order'?item.name+' — '+item.price_label+'. '+item.turnaround:'The team will receive the details you choose to submit. Tara has not sent anything.';
+    $('review-description').textContent=kind==='order'?item.name+' — '+item.price_label+'. '+item.turnaround:'Review your question for the team. Nothing has been sent.';
     ['name','email','organization','target_url','notes'].forEach(k=>$(''+k).value=state.fields[k]||'');
     if(kind==='help') $('notes').value=state.fields.message||state.fields.notes||state.history.filter(m=>m.role==='user').map(m=>m.text).join('\n');
     $('name').required=kind==='help';$('notes').required=kind==='help';
     $('target-wrap').hidden=!(kind==='order'&&item.needs_target_url);$('target_url').required=kind==='order'&&!!item.needs_target_url;
     $('prepare').textContent=kind==='order'?'Review sandbox payment':'Continue to the completed form';
     $('review-title').focus();
+    status('Voice is paused while you review. Your approval is still required.');
     if(wasVoice) readReview();
   }
   async function readReview(){
@@ -223,7 +230,7 @@
     try {
       const result=await api('prepare',{kind:reviewKind,sku:state.sku,fields});
       if(result.kind==='sandbox'){
-        reviewToken=result.review_token;$('sandbox-summary').textContent=result.item.name+' — '+result.item.price_label+' USD (test money). '+result.message;
+        reviewToken=result.review_token;$('review-description').textContent='';$('sandbox-summary').textContent=result.item.name+' — '+result.item.price_label+' USD (test money). '+result.message;
         $('sandbox-confirm').hidden=false;$('review-form').hidden=true;$('paypal').disabled=!state.sandbox_ready;if(state.sandbox_ready)$('paypal').focus();status(state.sandbox_ready?'Please review and approve the sandbox handoff.':'The draft is ready. PayPal sandbox configuration is still needed before checkout.');
       }else{
         sessionStorage.setItem('tara_handoff',JSON.stringify({destination:result.destination,form:result.form,created:Date.now()}));

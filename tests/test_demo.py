@@ -17,10 +17,10 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(page.status_code,200)
         self.assertIn(b'Start voice conversation',page.data)
         self.assertIn(b'Read my draft aloud',page.data)
-        self.assertIn(b'PayPal sandbox demonstration',page.data)
+        self.assertIn(b'PayPal sandbox demo',page.data)
 
     def test_welcome_is_prepared_and_catalogue_introductions_need_no_provider(self):
-        self.assertEqual(self.client.get('/static/audio/tara/welcome-v371.mp3').status_code,200)
+        self.assertEqual(self.client.get('/static/audio/tara/welcome-v381.mp3').status_code,200)
         with patch.object(tara,'propose') as provider,patch.object(tara,'reserve_call',return_value=False):
             response=self.client.post('/api/tara/chat',json={'message':'Tell me about your free apps.'},headers=self.headers)
         self.assertEqual(response.status_code,200)

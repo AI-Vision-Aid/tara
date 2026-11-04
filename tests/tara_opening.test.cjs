@@ -13,7 +13,7 @@ function setup({dedicated=false,permissionPending=false}={}){
   }
   const dialog=node('tara-dialog'),opener=node('opener');
   class Speech{
-    setWelcome(audio){calls.push(['prepare',audio.id]);}setThinking(audio){calls.push(['prepare-thinking',audio.id]);}
+    setRecovery(audio){calls.push(['prepare-recovery',audio.id]);}setWelcome(audio){calls.push(['prepare',audio.id]);}setThinking(audio){calls.push(['prepare-thinking',audio.id]);}
     play(id,mode,done){calls.push(['play',id,mode,done]);return Promise.resolve(true);}
     playThinking(){calls.push(['thinking']);return Promise.resolve(true);}
     cancel(){calls.push(['cancel']);}prime(){return Promise.resolve(true);}
@@ -92,4 +92,14 @@ test('Quiet recognition can retry; denial stops instead of a permission loop',as
   const s=setup();s.ready();await tick();s.click('opener');s.welcomeEnd();await tick();
   s.recognitions[0].onerror({error:'no-speech'});s.recognitions[0].onend();s.advance(500);assert.equal(s.recognitions.length,2);
   s.recognitions[1].onerror({error:'not-allowed'});s.recognitions[1].onend();s.advance(1000);assert.equal(s.recognitions.length,2);
+});
+
+test('Recognized words remain editable and a failed voice turn has a prepared audible recovery',async()=>{
+ const s=setup();s.ready();await tick();s.click('opener');s.welcomeEnd();await tick();
+ s.recognitions[0].onresult({results:[[{transcript:'Keep these spoken requirements'}]]});
+ assert.equal(s.node('tara-message').value,'Keep these spoken requirements');
+ s.requests[0].resolve({ok:false,json:async()=>({error:'Temporarily unavailable'})});await tick();
+ const recovery=s.calls.find(c=>c[0]==='play'&&c[1]==='recovery');assert.ok(recovery);
+ assert.equal(s.node('tara-message').value,'Keep these spoken requirements');
+ recovery[3]();await tick();assert.equal(s.recognitions.length,2);
 });

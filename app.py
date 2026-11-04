@@ -6,10 +6,11 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from security import get_csrf_token
 from ability_market.catalogue import CATALOGUE,get_buyable
 from ability_tara.routes import bp
+from ability_tara import routes as tara
 
 app=Flask(__name__)
-app.wsgi_app=ProxyFix(app.wsgi_app,x_for=1,x_proto=1,x_host=1)
-app.config.update(SECRET_KEY=os.environ.get('SECRET_KEY') or secrets.token_hex(32),
+app.wsgi_app=ProxyFix(app.wsgi_app,x_for=1 if os.environ.get("K_SERVICE") else 0,x_proto=1,x_host=1)
+app.config.update(TARA_STANDALONE=True, SECRET_KEY=os.environ.get('SECRET_KEY') or secrets.token_hex(32),
                   SESSION_COOKIE_HTTPONLY=True,SESSION_COOKIE_SAMESITE='Lax',
                   SESSION_COOKIE_SECURE=os.environ.get('COOKIE_SECURE','0')=='1')
 APPS=json.loads((Path(__file__).parent/'public_apps.json').read_text(encoding='utf-8'))
@@ -36,7 +37,7 @@ def headers(response):
     return response
 
 @app.get('/api/health')
-def health():return {'status':'ok','app':'tara-sandbox'}
+def health():return tara.configuration()
 
 @app.get('/privacy')
 def privacy():
@@ -51,7 +52,10 @@ def privacy():
 @app.get('/terms')
 @app.get('/apps/<path:rest>')
 @app.get('/buy/<path:sku>')
-def published_info(**kwargs):return redirect('https://www.abilitybazaar.com'+request.path)
+def published_info(**kwargs):
+    if request.path.startswith('/buy/'):
+        return render_template_string("""{% extends 'base.html' %}{% block content %}<section class='section'><div class='container'><h1>Sandbox orders stay in Tara</h1><p>This local demo does not redirect you into a real checkout. Return to Tara to review a sandbox order. The services link opens the real Ability Bazaar site.</p><a href='/tara?demo=1'>Return to Tara sandbox</a> · <a href='https://www.abilitybazaar.com/services'>Browse the real catalogue (external site)</a></div></section>{% endblock %}""",page_title='Sandbox ordering')
+    return redirect('https://www.abilitybazaar.com'+request.path)
 
 @app.get('/contact')
 def contact_preview():

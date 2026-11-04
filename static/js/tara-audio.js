@@ -16,6 +16,7 @@
     async playWelcome(onEnd) {
       return this.playPrepared(this.welcomeAudio,onEnd,'welcome');
     }
+    setRecovery(audio) {this.recoveryAudio=audio;if(audio){audio.preload='auto';audio.load();}}
     async playThinking() {
       return this.playPrepared(this.thinkingAudio,null,'thinking');
     }
@@ -30,7 +31,7 @@
         // Start in the original click gesture. No session, synthesis or POST wait.
         const playback=audio.play();
         if(playback)await playback;
-        if(active()){this.status(kind==='thinking'?'Tara is checking the published information…':'Tara is welcoming you. Listening starts when the greeting finishes.');return true;}
+        if(active()){this.status(kind==='thinking'?'Tara is checking the published information…':kind==='recovery'?'Tara is explaining how to continue.':'Tara is welcoming you. Listening starts when the greeting finishes.');return true;}
         return false;
       } catch(error) {
         if(active()){this.cancel();this.status(kind==='thinking'?'Tara is checking the published information…':'You can continue with voice or type your message.',kind!=='thinking');}
@@ -55,6 +56,7 @@
       this.nextTime=0;
     }
     async play(id, mode, onEnd) {
+      if(id==='recovery' && this.recoveryAudio)return this.playPrepared(this.recoveryAudio,onEnd,'recovery');
       if(id==='welcome' && this.welcomeAudio)return this.playWelcome(onEnd);
       this.cancel(); const epoch=this.epoch;
       const controller=new AbortController();this.controller=controller;

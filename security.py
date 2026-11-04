@@ -50,9 +50,9 @@ def client_ip():
     return request.remote_addr or "unknown"
 
 
-def rate_limited(bucket, limit, window_s):
+def rate_limited(bucket, limit, window_s, identity=None):
     """Record a hit; return True if the caller has exceeded `limit` per window."""
-    key = (bucket, client_ip())
+    key = (bucket, identity if identity is not None else client_ip())
     now = time.time()
     with _rl_lock:
         dq = _hits[key]
