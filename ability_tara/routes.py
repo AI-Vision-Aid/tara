@@ -316,10 +316,13 @@ def literal_fields(state,message):
     # Notes are the customer's exact words, assembled by the server, never generated.
     result['notes']=[''];result['message']=['']
     patterns={'name':r'\b(?:my name is|name\s*:)\s*([^.,;!\n]{1,120})',
-              'organization':r'\b(?:(?:my )?(?:organization|company|business)(?: name)?\s*(?:is|:)\s*)([^.,;!\n]{1,200})',
+              'organization':r'\b(?:(?:my )?(?:organization|company|business)\s+(?:name\s+is|is called|called)|(?:organization|company|business)\s*:)\s*([^.,;!\n]{1,200})',
               'email':r'(?:\bmy\s+e-?mail(?:\s+address)?(?:\s+is)?|(?:^|[.,;\n])\s*e-?mail(?:\s+address)?(?:\s+is)?)\s*[:=]?\s*([\w.+%-]+@[\w.-]+\.[a-z]{2,})'}
     for key,pattern in patterns.items():
-        result[key]+=re.findall(pattern,words,re.I)[-3:]
+        found=re.findall(pattern,words,re.I)[-3:]
+        if key in ('name','organization'):
+            found=[re.split(r'\s+(?:and\s+(?:my|we|I|our)|but|so|who|which)\b',v,maxsplit=1,flags=re.I)[0].strip() for v in found]
+        result[key]+=found
         result[key]=list(dict.fromkeys(v.strip() for v in result[key]))
     text=re.sub(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}','',words,flags=re.I)
     result['target_url']+=re.findall(r'(?<![@\w])(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?',text,re.I)[-3:]
@@ -383,7 +386,10 @@ def _apply(state, plan):
         if '-' in product['sku']:
             reply=re.sub(r'\b'+re.escape(product['sku'])+r'\b',product['name'],reply,flags=re.I)
     sku = str(plan.get('sku') or '')
-    if not sku:
+    action = plan.get('action') if plan.get('action') in ('none','order','help','browse') else 'help'
+    last_user=next((m['text'] for m in reversed(state['history']) if m['role']=='user'),'')
+    separate_request=bool(re.search(r'\b(?:separate|new request|another request)\b',last_user,re.I))
+    if not sku and (action=='order' or separate_request):
         named=[i for i in CATALOGUE if i['name'].lower() in reply.lower()]
         if len(named)==1:sku=named[0]['sku']
     item = next((i for i in CATALOGUE if i['sku'] == sku), None)
@@ -406,8 +412,8 @@ def _apply(state, plan):
                  'Please review the verified service details below.') if item else FALLBACK
     if re.search(r"\b(?:I've|I have|we have|I've already)\s+(?:sent|submitted|booked|charged|paid|placed)|\b(?:payment|order|request)\s+(?:has been|is|was)\s+(?:confirmed|paid|submitted|sent|placed)", reply, re.I):
         reply = 'I can prepare the details for you to review. Nothing has been submitted or paid through this conversation.'
-    if re.search(r"\b(?:I have|I've|I|we)\s+(?:updated|saved|added|recorded|captured)\b",reply,re.I):
-        reply='Your words are kept in the editable draft. Please review them before continuing.'
+    reply=re.sub(r"(?:^|(?<=[.!?])\s+)(?:I have|I've|I|we)\s+(?:updated|saved|added|recorded|captured)\b[^.!?]*(?:[.!?]|$)",
+                 ' Your words are kept in the editable draft. ',reply,flags=re.I).strip()
     if not item and action == 'order':
         action = 'help'
         reply = FALLBACK
@@ -427,17 +433,17 @@ def _apply(state, plan):
     allowed_fields=literal_fields(state,question)
     if isinstance(fields, dict):
         for k, limit in FIELD_LIMITS.items():
-            if k not in ('notes','message') and isinstance(fields.get(k), str) and fields[k].strip() in allowed_fields[k] and fields[k].strip():
+            if k not in ('notes','message') and not (k in ('name','email','organization') and state['fields'].get(k)) and isinstance(fields.get(k), str) and fields[k].strip() in allowed_fields[k] and fields[k].strip():
                 state['fields'][k] = fields[k].strip()[:limit]
     for k in ('name','email','organization'):
         given=[v for v in allowed_fields[k] if v and v!=previous_fields.get(k)]
-        if given:state['fields'][k]=given[-1][:FIELD_LIMITS[k]]
+        if given and not state['fields'].get(k):state['fields'][k]=given[-1][:FIELD_LIMITS[k]]
     # Preserve an explicitly supplied contact address even if model extraction
     # misses it; never treat a standalone email address as a website URL.
     supplied=re.search(r'\b(?:my\s+e-?mail(?:\s+address)?(?:\s+is)?|e-?mail(?:\s+address)?(?:\s+is)?(?=\s*[:=]?\s*[\w.+%-]+@))\s*[:=]?\s*([\w.+%-]+@[\w.-]+\.[a-z]{2,})',question,re.I)
     explicit_contact = bool(re.search(r'\bmy\s+(?:name|e-?mail)\b',question,re.I)
                             or re.match(r'^\s*e-?mail(?:\s+address)?\s*[:=]',question,re.I))
-    if supplied and explicit_contact:
+    if supplied and explicit_contact and not state['fields'].get('email'):
         state['fields']['email']=supplied.group(1)[:FIELD_LIMITS['email']]
     if re.fullmatch(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}',state['fields'].get('target_url',''),re.I):
         state['fields'].pop('target_url',None)
@@ -454,11 +460,14 @@ def _apply(state, plan):
         state['fields']['notes']=exact[-FIELD_LIMITS['notes']:]
         if action=='help':
             unresolved=str(fields.get('message') or question).strip()
-            state['fields']['message']=('Question for the team: '+unresolved+'\n\nCustomer words:\n'+exact)[-FIELD_LIMITS['message']:]
+            context='' if unresolved.strip()==exact.strip() else '\n\nCustomer words:\n'+exact
+            state['fields']['message']=('Question for the team: '+unresolved+context)[-FIELD_LIMITS['message']:]
     from app import INTERESTS
     interest = plan.get('interest')
     if interest in dict(INTERESTS):
         state['interest'] = interest
+    if action=='help' and re.search(r'\b(?:build|create|develop|native|offline|iPhone|custom)\b.*\b(?:app|website|prototype)\b',question,re.I):
+        state['interest']='enterprise'
     allowed_pages = {'/services':'Explore services','/apps':'Explore apps',
                      '/sponsor':'Sponsor student training','/donate':'Support Vision-Aid',
                      '/about':'About Ability Bazaar','/support':'Customer support',
@@ -822,7 +831,7 @@ def prepare():
         token = secrets.token_urlsafe(24)
         state['review'] = {'token':token,'sku':sku,'fields':fields,
                            'amount':item['price_usd'],'created':time.time()}
-        return jsonify(kind='sandbox', review_token=token, item=item,
+        return jsonify(kind='sandbox', review_token=token, item=item, payment_summary=payment_summary(fields['notes']),
                        message='PayPal will receive this summary: '+payment_description(item,fields['notes'])+'. Test money only; no service is commissioned.')
     interest = state.get('interest', 'other')
     form = {'name':fields['name'],'email':fields['email'],
@@ -857,15 +866,28 @@ def paypal(method, path, body=None, request_id=None):
 def payment_summary(text):
     text=re.sub(r'[\w.+%-]+@[\w.-]+\.[a-z]{2,}','',str(text),flags=re.I)
     text=re.sub(r'https?://\S+|\b(?:\+?\d[\d ()-]{8,}\d)\b','',text)
-    count=re.search(r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:web\s+)?pages?\b',text,re.I)
-    requested=([count.group(0)] if count else [])+re.findall(r'\b(?:bakery|catering (?:request )?form|opening hours|(?:large )?readable text|keyboard(?:-friendly)? navigation|calendar|reminders|Hindi|English|scanned (?:PDF|files?|documents?)|tables?|offline)\b',text,re.I)
+    count=re.search(r'\b(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)[ -]+(?:web[ -]+)?pages?\b',text,re.I)
+    names=re.search(r'\bpages?\s*:\s*([^.!?\n]+)',text,re.I)
+    count_text=re.sub(r'[- ]+', ' ',count.group(0)).lower() if count else ''
+    if count_text and not count_text.startswith(('one ','1 ')):count_text=re.sub(r'\bpage$','pages',count_text)
+    requested=([count_text] if count else [])
+    if names:requested=[(requested[0] if requested else 'pages')+': '+re.sub(r'\s+and\s+',', ',names.group(1).strip(),flags=re.I)]
+    features=re.findall(r'\b(?:catering (?:request )?form|opening hours|(?:large )?readable text|keyboard(?:-friendly)? navigation|calendar|reminders|Hindi|English|scanned (?:PDF|files?|documents?)|tables?|offline)\b',text,re.I)
+    requested+=features
+    if not names and re.search(r'\bbakery\b',text,re.I):requested.append('bakery')
     if requested:
         short=[t.lower().replace('catering request form','catering form').replace('large readable text','readable text') for t in requested]
-        return trim_summary('Requested: '+'; '.join(dict.fromkeys(short)),90)
+        return bounded_summary('; '.join(dict.fromkeys(short)))
     text=re.sub(r'\bmy\s+(?:name|email|organization)\s+(?:is\s+)?[^.!\n]{0,150}[.!\n]?','',text,flags=re.I)
     parts=[p.strip() for p in re.split(r'(?<=[.!?])\s+|\n+',text) if re.search(r'pages?|website|document|PDF|forms?|build|app|scan',p,re.I) and not re.match(r'^(?:choose|my name|use synthetic|email)',p,re.I)]
     if parts:text=max(parts,key=len)
-    return trim_summary(' '.join(text.split()),90)
+    return bounded_summary(' '.join(text.split()))
+
+
+def bounded_summary(text):
+    text=' '.join(str(text).split())
+    marker='; + more in your Tara brief'
+    return text if len(text)<=127 else trim_summary(text,127-len(marker))+marker
 
 
 def trim_summary(text,limit):
@@ -892,10 +914,14 @@ def checkout():
     # Price always comes from the current catalogue, never a model or browser.
     amount = f"{Decimal(str(item['price_usd'])):.2f}"
     return_base = request.host_url.rstrip('/')
-    summary=payment_description(item,review['fields']['notes'])
+    item_summary=str(data.get('payment_summary',payment_summary(review['fields']['notes']))).strip()
+    item_summary=' '.join(item_summary.split())
+    if not item_summary or len(item_summary)>127 or re.search(r'@|https?://',item_summary,re.I):
+        return jsonify(error='Use a short PayPal summary of 1 to 127 characters, without email addresses or links.'),422
+    summary='SANDBOX - '+item['name']+' - '+item_summary
     body = {'intent':'CAPTURE','purchase_units':[{'reference_id':ref,'custom_id':ref,
-        'description':summary,
-        'items':[{'name':'SANDBOX - '+item['name'],'description':payment_summary(review['fields']['notes']),
+        'description':trim_summary(summary,127),
+        'items':[{'name':'SANDBOX - '+item['name'],'description':item_summary,
                   'quantity':'1','category':'DIGITAL_GOODS','unit_amount':{'currency_code':'USD','value':amount}}],
         'amount':{'currency_code':'USD','value':amount,'breakdown':{'item_total':{'currency_code':'USD','value':amount}}}}],
         'payment_source':{'paypal':{'experience_context':{'brand_name':'Ability Bazaar - Tara demo',

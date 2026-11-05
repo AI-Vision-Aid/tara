@@ -231,6 +231,7 @@
       const result=await api('prepare',{kind:reviewKind,sku:state.sku,fields});
       if(result.kind==='sandbox'){
         reviewToken=result.review_token;$('review-description').textContent='';$('sandbox-summary').textContent=result.item.name+' — '+result.item.price_label+' USD (test money). '+result.message;
+        $('payment-summary').value=result.payment_summary||'';
         $('sandbox-confirm').hidden=false;$('review-form').hidden=true;$('paypal').disabled=!state.sandbox_ready;if(state.sandbox_ready)$('paypal').focus();status(state.sandbox_ready?'Please review and approve the sandbox handoff.':'The draft is ready. PayPal sandbox configuration is still needed before checkout.');
       }else{
         sessionStorage.setItem('tara_handoff',JSON.stringify({destination:result.destination,form:result.form,created:Date.now()}));
@@ -240,7 +241,7 @@
   });
   $('paypal').addEventListener('click',async()=>{
     $('paypal').disabled=true;status('Opening secure PayPal sandbox checkout…');
-    try{const result=await api('checkout',{review_token:reviewToken,confirmed:true});const dest=new URL(result.approval_url);if(dest.hostname!=='www.sandbox.paypal.com')throw new Error('Invalid checkout destination.');location.assign(dest.href);}
+    try{const result=await api('checkout',{review_token:reviewToken,confirmed:true,payment_summary:$('payment-summary').value});const dest=new URL(result.approval_url);if(dest.hostname!=='www.sandbox.paypal.com')throw new Error('Invalid checkout destination.');location.assign(dest.href);}
     catch(e){status(e.message,true);$('paypal').disabled=false;}
   });
   document.querySelectorAll('[data-tara-open]').forEach(link=>link.addEventListener('click',e=>{

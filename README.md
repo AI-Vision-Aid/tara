@@ -162,3 +162,10 @@ draft; the team evaluated its findings and implemented accepted changes with Cod
 ## Reproduce the synthetic journey evaluation
 
 With the app running, use `python scripts/evaluate_journeys.py --base http://127.0.0.1:8080 --output tara-evaluation`. The explicit target avoids accidentally testing the public site. This makes 60 synthetic journeys / 66 chat turns plus reset requests, uses configured model quota, respects the request throttle and creates no orders, inquiries or emails. It writes full synthetic responses and timing; it is not human usability or assistive-technology testing. For hosted evaluation use a staging URL and ensure quota is available.
+
+
+## Final review fixes (3.9.2)
+
+Natural contact phrases stop before a following email clause; companies require an explicit name. Existing contacts remain editable in review. Replacing an unsupported saved-details claim preserves follow-up questions. Merely discussing a future package does not start another request. Single-turn handoffs avoid duplicated text; custom app questions use the custom-build category.
+
+Before PayPal, the customer can edit a short line of up to 127 characters. This is Tara's concise-summary limit, not a claim about PayPal's maximum. The item description receives that entire line; complete requirements stay in the Tara brief. Longer automatic summaries explicitly mark omitted detail. Named pages and keyboard-friendly navigation are retained when they fit. Catalogue prices, ownership, approval and capture verification are unchanged.

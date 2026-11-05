@@ -100,6 +100,53 @@ class PlanConstraints(TestCase):
         self.assertIn('Alex Demo',fields['name']['enum']);self.assertIn('alex@example.com',fields['email']['enum'])
         self.assertFalse(schema['additionalProperties']);self.assertEqual(schema['properties']['sources']['maxItems'],6)
 
+class FinalReviewRegressions(TestCase):
+    setUp=ReviewRegressions.setUp
+    chat=ReviewRegressions.chat
+    def test_natural_contact_sentence_stops_before_email_and_preserves_existing_name(self):
+        p={'reply':'What pages do you need?','sku':'static-site','action':'order','fields':{}}
+        data=self.chat('My name is Test Baker and my email is test.baker@example.com',p).json
+        self.assertEqual(data['fields']['name'],'Test Baker');self.assertEqual(data['fields']['email'],'test.baker@example.com')
+        again=self.chat('My name is Someone Else.',p).json
+        self.assertEqual(again['fields']['name'],'Test Baker')
+    def test_organization_is_only_inferred_from_an_explicit_name(self):
+        for text in ['My business is a small bakery in Boston and we need five pages','My company is looking for a website']:
+            values=tara.literal_fields({'fields':{},'customer_words':[]},text)
+            self.assertEqual(values['organization'],[''])
+        values=tara.literal_fields({'fields':{},'customer_words':[]},'My company is called Example Bakery and we need five pages.')
+        self.assertIn('Example Bakery',values['organization'])
+    def test_replacing_a_save_claim_preserves_the_followup_question(self):
+        data=self.chat('Please add a gallery.',{'reply':"I've added a gallery to your notes. Do you also need a booking form?",'sku':'static-site','action':'order','fields':{}}).json
+        self.assertIn('Do you also need a booking form?',data['history'][-1]['text']);self.assertNotIn("I've added",data['history'][-1]['text'])
+    def test_browsing_an_upgrade_does_not_split_the_current_request(self):
+        self.chat('Build a bakery website.')
+        data=self.chat('What if I later want online ordering?',{'reply':'The Growth Website or App Build may fit later.','sku':'','action':'browse','fields':{}}).json
+        self.assertFalse(data['saved_requests']);self.assertIn('bakery',data['fields']['notes'])
+    def test_payment_summary_keeps_added_keyboard_requirement_and_named_pages(self):
+        text='I need a five-page website for my bakery. Choose Starter Website or App Build. Five pages: Home, Menu, Catering, About and Contact. Add a catering request form, opening hours and large readable text. Please include keyboard-friendly navigation.'
+        summary=tara.payment_summary(text)
+        self.assertLessEqual(len(summary),127)
+        for term in ['five pages','home','menu','catering','about','contact','keyboard-friendly navigation']:self.assertIn(term,summary)
+        self.assertIn('more in your Tara brief',tara.bounded_summary('additional detailed requirement '*20))
+    def test_edited_paypal_summary_is_sent_without_changing_price(self):
+        fields={'name':'Alex Demo','email':'alex@example.com','notes':'Build a bakery website.'}
+        with patch.object(tara,'db',return_value=Store()),patch.object(tara,'sandbox_ready',return_value=True):
+            prep=self.c.post('/api/tara/prepare',json={'kind':'order','sku':'static-site','fields':fields},headers=self.h).json
+            self.assertIn('payment_summary',prep)
+            with patch.object(tara,'paypal',return_value={'id':'ORDER','links':[{'rel':'payer-action','href':'https://www.sandbox.paypal.com/checkoutnow?token=ORDER'}]}) as gateway:
+                response=self.c.post('/api/tara/checkout',json={'review_token':prep['review_token'],'confirmed':True,'payment_summary':'Five pages; keyboard-friendly navigation','amount':'1.00'},headers=self.h)
+                self.assertEqual(response.status_code,200);unit=gateway.call_args.args[2]['purchase_units'][0]
+                self.assertEqual(unit['items'][0]['description'],'Five pages; keyboard-friendly navigation');self.assertEqual(unit['amount']['value'],'500.00')
+            for summary in ['x'*128,'alex@example.com','https://example.com','']:
+                with patch.object(tara,'paypal') as gateway:
+                    response=self.c.post('/api/tara/checkout',json={'review_token':prep['review_token'],'confirmed':True,'payment_summary':summary},headers=self.h)
+                    self.assertEqual(response.status_code,422);gateway.assert_not_called()
+    def test_one_turn_handoff_is_not_duplicated_and_custom_app_routes_to_enterprise(self):
+        data=self.chat('Can you promise a native offline iPhone app by tomorrow?',{'reply':'The team must review that.','action':'help','sku':'','fields':{},'interest':'services'}).json
+        self.assertNotIn('Customer words:',data['fields']['message'])
+        handoff=self.c.post('/api/tara/prepare',json={'kind':'help','fields':{'name':'Alex','email':'alex@example.com','message':data['fields']['message']}},headers=self.h).json
+        self.assertEqual(handoff['form']['interest'],'enterprise')
+
 class DocumentScope(ReviewRegressions):
     def test_named_website_pages_without_package_do_not_trigger_document_scope(self):
         data=self.chat('My name is Alex Demo. Organization Demo Bakery. Five pages: Home, Menu, Catering, About and Contact.',{'reply':'Would you like a bakery website?','sku':'','action':'browse','fields':{}}).json
