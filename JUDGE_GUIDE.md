@@ -17,8 +17,10 @@ silent. Choose **Start voice conversation** and allow the microphone, or choose
 2. Choose Starter. Use synthetic details. Name the five pages and a catering
    form; check that Your own words and the editable review preserve them.
 3. Review the published USD500 price and the short PayPal summary.
-4. Approve with your own PayPal **sandbox Personal buyer** account, not a live
-   PayPal login or the sandbox seller. No real money or fulfillment is involved.
+4. Approve with the dedicated PayPal **sandbox Personal buyer** supplied in
+   Devpost's private judge instructions, or your own sandbox Personal buyer.
+   Do not use a live PayPal login or the sandbox seller. No real money or
+   fulfillment is involved.
 5. Check the receipt amount and references. Refresh; the same capture remains.
    Cancelled approvals remain unpaid. Ask an unpublished-price question to see
    the editable human-request fallback; do not submit a real inquiry for testing.
@@ -29,8 +31,9 @@ silent. Choose **Start voice conversation** and allow the microphone, or choose
 explains how to sign into the Developer Dashboard, open Testing Tools > Sandbox
 Accounts, and view a default Personal buyer or create one. Use that test buyer
 email/password at PayPal's own sandbox approval page. A free developer account
-is required if you do not already have a test buyer. No owner login or private
-merchant secret is included here.
+is required if you want to create your own test buyer. Judges can instead use
+the dedicated test buyer provided privately in the submitted entry. No owner
+login, buyer password or private merchant secret is published in this repository.
 
 ## Source and preservation
 
