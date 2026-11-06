@@ -184,3 +184,5 @@ The video explains current sandbox testing and planned real-checkout integration
 no live-payment capability or representative-user certification is claimed.
 The general free-app reply points to the catalogue and its availability notes.
 The built-in video player loads YouTube only after a visitor chooses to play it.
+
+[Judge walkthrough, buyer setup and pinned demo](JUDGE_GUIDE.md).
