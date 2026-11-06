@@ -1,5 +1,25 @@
 [
   {
+    "slug": "tara",
+    "name": "TARA - Transaction and Request Assistant",
+    "status": "live",
+    "status_label": "Live assistant - test checkout",
+    "tagline": "Your words. Your choices. A clearer next step.",
+    "desc": "Explore Ability Bazaar by voice or text. Tara explains published services and apps, keeps your requirements in an editable brief, and guides you through a reviewed PayPal test checkout. Unverified questions go to the team.",
+    "audience": "Everyone, especially blind and low-vision visitors and people who prefer conversation",
+    "facts": [
+      "Optional voice, typing and keyboard controls",
+      "Review your requirements and published price",
+      "PayPal sandbox checkout; no real charge"
+    ],
+    "proof": "Free to use; services have their own published prices",
+    "cta": "Talk to Tara",
+    "url": "/tara",
+    "image": "img/tara-logo.png",
+    "video": "https://www.youtube.com/watch?v=7dBsvmOW2ag",
+    "source": "https://github.com/AI-Vision-Aid/tara"
+  },
+  {
     "slug": "ability-fellows-interview-coach",
     "icon": "🎙️✨",
     "name": "Maya — Ability Fellows Interview Coach",

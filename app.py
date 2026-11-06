@@ -33,7 +33,7 @@ def headers(response):
     response.headers.update({'X-Content-Type-Options':'nosniff','X-Frame-Options':'SAMEORIGIN',
         'Referrer-Policy':'strict-origin-when-cross-origin','Cache-Control':'no-store',
         'Permissions-Policy':'microphone=(self), camera=(), geolocation=()',
-        'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: data:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https://www.sandbox.paypal.com"})
+        'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: data:; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self' https://www.sandbox.paypal.com"})
     return response
 
 @app.get('/api/health')

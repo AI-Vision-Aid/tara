@@ -280,7 +280,7 @@ def quick_plan(message):
     if normalized in {'hello','hi','hey','what can you do','how can you help me','what services do you offer'}:
         return {'reply':GREETING,'action':'browse','sku':'','fields':{},'sources':['/apps','/services']}
     if normalized in {'tell me about your free apps','tell me about your free apps and how i can try them','what free apps do you have','show me your free apps','explore free apps'}:
-        return {'reply':'Maya offers voice-first interview practice. Saarthi helps you understand what is said and shown in meetings. Both are free apps; Saarthi’s full Windows experience needs your own provider keys and usage charges may apply. Which would you like to explore?',
+        return {'reply':'There are several apps on our Apps page. Maya offers voice-first interview practice, Saarthi supports accessible meetings, and the catalogue also includes spoken-English learning and other tools. Each listing explains current availability and setup. Saarthi’s full Windows experience needs your own provider keys, and usage charges may apply. What would you like to explore?',
                 'action':'browse','sku':'','fields':{},'sources':['/apps','saarthi']}
     if normalized in {'i need accessible pdf files what do you offer','what document remediation services do you offer','tell me about document remediation','i need accessible documents','i need accessible documents help me choose a suitable service'}:
         docs=[item for item in CATALOGUE if item['sku'] in ('doc-starter','doc-standard','doc-pro')]

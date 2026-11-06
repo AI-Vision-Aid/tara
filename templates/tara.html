@@ -1,4 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="section"><div class="container tara-page">{% include "_tara_panel.html" %}</div></section>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tara-brand.css') }}?v=393">
+<section class="section"><div class="container tara-page">
+  <div class="tara-product-intro">
+    <img src="{{ url_for('static', filename='img/tara-logo.png') }}" alt="TARA by Ability Bazaar: Transaction and Request Assistant" width="1536" height="1024">
+    <div><p class="eyebrow">Built around your words and choices</p><p>Find an app, explore a service, or describe what you need. Tara helps you review the next step by voice or text. You stay in control.</p><p><a href="#tara-demo-film">Watch the short demonstration</a> &middot; <a href="https://github.com/AI-Vision-Aid/tara" target="_blank" rel="noopener noreferrer">Open-source code and setup<span class="sr-only"> (opens in a new tab)</span></a></p></div>
+  </div>
+  {% include "_tara_panel.html" %}
+  <section id="tara-demo-film" class="tara-demo-film" aria-labelledby="tara-film-title">
+    <h2 id="tara-film-title">See TARA in action</h2>
+    <p>Follow a visitor from finding an app to reviewing a website brief, approving a PayPal test payment and receiving a matching receipt. The 2 minute 57 second film uses actual software footage with an illustrative customer and synthetic voices.</p>
+    <button type="button" class="btn btn-secondary" data-tara-film aria-controls="tara-film-player" aria-expanded="false">Watch the TARA demonstration</button>
+    <div id="tara-film-player" hidden></div>
+    <p>Playing the video connects to YouTube. <a href="https://www.youtube.com/watch?v=7dBsvmOW2ag" target="_blank" rel="noopener noreferrer">Watch on YouTube<span class="sr-only"> (opens in a new tab)</span></a> or <a href="{{ url_for('static', filename='media/tara-demo-transcript.txt') }}">read the video transcript</a>.</p>
+    <p>Tara-assisted checkout currently uses PayPal sandbox test payments. Integration with the site's normal PayPal checkout is planned after testing. Regular Ability Bazaar ordering remains separate.</p>
+  </section>
+</div></section>
+<script src="{{ url_for('static', filename='js/tara-video.js') }}?v=393" defer></script>
 {% endblock %}

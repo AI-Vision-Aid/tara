@@ -1,0 +1,51 @@
+TARA: YOUR WORDS. YOUR CHOICES. A CLEARER NEXT STEP.
+Final submission cut, November 6, 2026. Three synthetic voices over actual typed app footage, with native-motion source footage for the opening. Illustrative customer, not a testimonial or physical microphone test.
+
+0.0s | Vision-Aid: skills, independence and opportunity | Narrator
+Since 2004, Vision-Aid has worked to enable, educate and empower visually impaired people in India, supporting skills, independence, dignity and opportunities for meaningful work.
+
+13.6s | Ability Bazaar. A clearer route to opportunity. | Narrator
+Ability Bazaar is Vision-Aid's disability-led marketplace for websites, apps, accessibility services and free tools.
+
+23.0s | Speak. Type. Choose your way. | Narrator
+For visually impaired visitors and other people with disabilities, navigating Ability Bazaar, choosing a service and placing a PayPal order can be challenging. Tara was built to guide the whole journey, by voice or text.
+
+39.1s | Meet Tara. | Tara
+Welcome to Ability Bazaar! I'm Tara, your AI assistant. I can help with accessibility testing, accessible documents, building websites and apps, or exploring our free apps. What would you like help with today?
+
+52.7s | Find a useful starting point. | Alex
+What free apps do you have?
+
+55.5s | Explore the Apps page with Tara | Tara
+There are several apps on our Apps page. Maya offers interview practice, Saarthi supports accessible meetings, and you'll find spoken-English learning and other tools there too.
+
+69.0s | Describe the goal in your own words. | Alex
+I need a five-page website for my bakery. What do you offer?
+
+73.9s | Helpful answers. Published prices. | Tara
+We offer the Starter Website or App Build, which covers up to ten pages and one simple workflow. The published price for Starter Website or App Build is five hundred dollars.
+
+84.4s | Your details stay with your request. | Alex
+Choose Starter Website or App Build. Five pages: Home, Menu, Catering, About and Contact. Add a catering request form, opening hours and large readable text.
+
+100.9s | Review it. Make it yours. | Narrator
+The conversation has become an editable brief. Alex checks the requirements and the price. A short summary accompanies the payment; the full requirements stay in Tara.
+
+112.9s | One reviewed request. A clear payment decision. | Narrator
+Alex sees the chosen service, the five-hundred-dollar price and the reviewed summary on PayPal's own page. Approval remains Alex's choice.
+
+126.9s | You decide when to continue. | Alex
+I've checked the details. I'll approve this payment.
+
+134.4s | A completed step. A matching receipt. | Narrator
+PayPal confirms the payment. Tara brings Alex back to a matching receipt, with the service, amount and transaction reference.
+
+145.4s | From a need to a clear next step. | Alex
+I described what I needed, checked the details, and chose when to pay.
+
+150.6s | A person is still within reach. | Narrator
+If there is no published answer, Tara prepares a question for the team. Alex can review and send it, without starting again.
+
+157.9s | Find what you need. Place your order. | Narrator
+Tara is currently being tested in PayPal's sandbox. Once testing is complete, it will integrate with Ability Bazaar's PayPal system. The goal: help anyone, especially visually impaired people and other people with disabilities, find what they need and easily place an order.
+

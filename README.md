@@ -7,6 +7,12 @@ testing, document remediation, free apps and the wider Ability Bazaar catalogue.
 It explains verified offerings, captures requirements, reads back an editable
 draft, prepares existing forms, and guides the visitor into payment checkout.
 
+![TARA: Transaction and Request Assistant](static/img/tara-logo.png)
+
+Public demonstration video: https://www.youtube.com/watch?v=7dBsvmOW2ag
+
+Apps listing: https://www.abilitybazaar.com/apps#tara
+
 Integrated prototype: https://www.abilitybazaar.com/tara
 
 PayPal sandbox demonstration: https://www.abilitybazaar.com/tara?demo=1
@@ -169,3 +175,12 @@ With the app running, use `python scripts/evaluate_journeys.py --base http://127
 Natural contact phrases stop before a following email clause; companies require an explicit name. Existing contacts remain editable in review. Replacing an unsupported saved-details claim preserves follow-up questions. Merely discussing a future package does not start another request. Single-turn handoffs avoid duplicated text; custom app questions use the custom-build category.
 
 Before PayPal, the customer can edit a short line of up to 127 characters. This is Tara's concise-summary limit, not a claim about PayPal's maximum. The item description receives that entire line; complete requirements stay in the Tara brief. Longer automatic summaries explicitly mark omitted detail. Named pages and keyboard-friendly navigation are retained when they fit. Catalogue prices, ownership, approval and capture verification are unchanged.
+
+## November 6 publication release
+
+TARA is also listed on the Ability Bazaar Apps page. Its new artwork, captioned
+public video and text transcript accompany the same optional voice/text assistant.
+The video explains current sandbox testing and planned real-checkout integration;
+no live-payment capability or representative-user certification is claimed.
+The general free-app reply points to the catalogue and its availability notes.
+The built-in video player loads YouTube only after a visitor chooses to play it.
