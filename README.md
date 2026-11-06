@@ -106,10 +106,13 @@ form handoff, price grounding, speech controls and isolated PayPal sandbox path
 are new work in November 2026. Do not claim the entire marketplace was built
 during this event. AI assistance from ChatGPT/Codex was used for design, coding,
 debugging, documentation and validation. This source package does not constitute
-a submitted hackathon entry. The hosted sandbox purchase, cancellation and
-refresh/idempotency checks passed on November 2; the submission video and final
-entry review remain separate tasks. The business platform and earlier submitted
-Maya/Saarthi applications remain separate.
+a submitted hackathon entry by itself. The hosted sandbox purchase, cancellation
+and refresh/idempotency checks passed in November. The TARA entry was submitted
+on November 6, 2026, with its public demonstration video and completed review:
+[Devpost entry](https://devpost.com/software/tara-your-voice-guide-from-request-to-payment).
+The film's checkout footage is from release 3.9.1; the judged 3.9.3 build adds the
+editable PayPal summary and includes all requested items in the filmed example.
+The business platform and earlier submitted Maya/Saarthi applications remain separate.
 
 Code is MIT licensed. Vision-Aid and Ability Bazaar names and marks identify
 their owners; no endorsement by PayPal or Google is implied. Google API output
